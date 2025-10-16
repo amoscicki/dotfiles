@@ -1,0 +1,9 @@
+{
+  "name": "dotfiles-speckit",
+  "version": "0.0.1",
+  "description": "Personal dotfiles with SpecKit integration for Windows 11 development setup",
+  "author": "Arkadiusz Moscicki",
+  "commands": {
+    "source": ".claude/commands"
+  }
+}

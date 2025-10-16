@@ -1,50 +1,137 @@
-# [PROJECT_NAME] Constitution
-<!-- Example: Spec Constitution, TaskFlow Constitution, etc. -->
+<!--
+Sync Impact Report
+==================
+Version Change: [NEW] → 1.0.0
+Reason: Initial constitution creation for dotfiles project
+
+Modified Principles: N/A (initial version)
+Added Sections:
+  - Core Principles (5 principles defined)
+  - Security & Privacy Requirements
+  - Quality Standards
+  - Governance
+
+Templates Status:
+  ⚠ plan-template.md - Review pending
+  ⚠ spec-template.md - Review pending
+  ⚠ tasks-template.md - Review pending
+  ⚠ checklist-template.md - Review pending
+  ⚠ agent-file-template.md - Review pending
+
+Follow-up TODOs:
+  - Validate template alignment with new constitution principles
+  - Ensure all SpecKit commands reference correct principle names
+-->
+
+# Dotfiles Constitution
 
 ## Core Principles
 
-### [PRINCIPLE_1_NAME]
-<!-- Example: I. Library-First -->
-[PRINCIPLE_1_DESCRIPTION]
-<!-- Example: Every feature starts as a standalone library; Libraries must be self-contained, independently testable, documented; Clear purpose required - no organizational-only libraries -->
+### I. Public by Default
+All configuration files, scripts, and documentation MUST be safe for public repositories.
+Sensitive data (API keys, passwords, SSH keys, personal tokens) MUST be excluded via
+`.gitignore` or stored externally using secure credential management. The project serves
+as a shareable reference for Windows 11 development environment setup.
 
-### [PRINCIPLE_2_NAME]
-<!-- Example: II. CLI Interface -->
-[PRINCIPLE_2_DESCRIPTION]
-<!-- Example: Every library exposes functionality via CLI; Text in/out protocol: stdin/args → stdout, errors → stderr; Support JSON + human-readable formats -->
+**Rationale**: This enables community sharing, forces good security practices, and ensures
+the dotfiles can be safely published to GitHub without risk of credential exposure.
 
-### [PRINCIPLE_3_NAME]
-<!-- Example: III. Test-First (NON-NEGOTIABLE) -->
-[PRINCIPLE_3_DESCRIPTION]
-<!-- Example: TDD mandatory: Tests written → User approved → Tests fail → Then implement; Red-Green-Refactor cycle strictly enforced -->
+### II. Automation First
+Manual setup steps MUST be minimized through PowerShell scripts, Chocolatey package
+managers, and symlink automation. Every configuration change SHOULD have a corresponding
+script that can reproduce it on a fresh system. Installation MUST be achievable through
+a single master script execution.
 
-### [PRINCIPLE_4_NAME]
-<!-- Example: IV. Integration Testing -->
-[PRINCIPLE_4_DESCRIPTION]
-<!-- Example: Focus areas requiring integration tests: New library contract tests, Contract changes, Inter-service communication, Shared schemas -->
+**Rationale**: Reduces recovery time from hours to minutes when setting up new machines
+or recovering from hardware failure. Eliminates human error in manual configuration.
 
-### [PRINCIPLE_5_NAME]
-<!-- Example: V. Observability, VI. Versioning & Breaking Changes, VII. Simplicity -->
-[PRINCIPLE_5_DESCRIPTION]
-<!-- Example: Text I/O ensures debuggability; Structured logging required; Or: MAJOR.MINOR.BUILD format; Or: Start simple, YAGNI principles -->
+### III. Modular & Independent
+Each tool's configuration MUST be self-contained in its own directory (e.g.,
+`powershell/`, `git/`, `wezterm/`). Configurations MUST NOT have hidden dependencies on
+other configurations. Each module SHOULD be installable independently via its own script.
 
-## [SECTION_2_NAME]
-<!-- Example: Additional Constraints, Security Requirements, Performance Standards, etc. -->
+**Rationale**: Allows selective adoption of configurations, easier testing of individual
+components, and simplified troubleshooting when issues arise.
 
-[SECTION_2_CONTENT]
-<!-- Example: Technology stack requirements, compliance standards, deployment policies, etc. -->
+### IV. Spec-Driven Development
+All significant features or configuration additions MUST follow SpecKit workflow:
+specification → planning → tasks → implementation. Changes MUST be documented in spec
+files before implementation. The `/speckit.*` commands MUST be used for feature planning.
 
-## [SECTION_3_NAME]
-<!-- Example: Development Workflow, Review Process, Quality Gates, etc. -->
+**Rationale**: Ensures thoughtful design, maintains project consistency, provides clear
+documentation of intent, and leverages Claude Code integration for AI-assisted development.
 
-[SECTION_3_CONTENT]
-<!-- Example: Code review requirements, testing gates, deployment approval process, etc. -->
+### V. Documentation as Code
+Every script MUST include comments explaining its purpose and usage. Every configuration
+directory MUST contain a README or inline comments describing the configuration's purpose.
+The main README MUST be kept current with actual repository structure and capabilities.
+
+**Rationale**: Future you (and others) will need to understand what each file does when
+recovery or updates are needed months or years later.
+
+## Security & Privacy Requirements
+
+**MUST NOT be committed:**
+- SSH private keys (any `id_*` files without `.pub` extension)
+- API keys, tokens, or credentials
+- `.env` files containing secrets
+- Browser cookies, session data, or cached credentials
+- Personal email addresses or identifying information in git configs (use generic or
+  placeholder values, document required manual substitution in README)
+
+**MUST be in `.gitignore`:**
+- `.specify/specs/` (working files)
+- `*.key`, `*.secret`, `credentials.*`, `.env.local`
+- SSH key patterns: `*.pem`, `*.ppk`, `id_rsa*`, `id_ed25519*`, `id_ecdsa*`
+
+**MUST document in README:**
+- Which files require manual customization (e.g., git user.name, user.email)
+- How to securely manage secrets (e.g., "Store in Windows Credential Manager")
+
+## Quality Standards
+
+### Scripts
+- PowerShell scripts MUST check prerequisites before execution
+- Scripts MUST provide clear success/failure messages
+- Scripts MUST be idempotent (safe to run multiple times)
+- Scripts MUST support `-WhatIf` for dry-run testing where applicable
+
+### Configuration Files
+- Config files MUST include comments explaining non-obvious settings
+- Config files SHOULD use relative paths or environment variables (not hardcoded paths)
+- Config files MUST be tested on a clean Windows 11 installation before commit
+
+### Git Commits
+- Commit messages MUST follow conventional commits format:
+  `<type>: <description>` (e.g., `feat: add neovim configuration`)
+- Types: `feat`, `fix`, `docs`, `chore`, `refactor`, `test`
+- Breaking changes MUST include `BREAKING CHANGE:` in commit body
 
 ## Governance
-<!-- Example: Constitution supersedes all other practices; Amendments require documentation, approval, migration plan -->
 
-[GOVERNANCE_RULES]
-<!-- Example: All PRs/reviews must verify compliance; Complexity must be justified; Use [GUIDANCE_FILE] for runtime development guidance -->
+### Constitution Authority
+This constitution supersedes all other development practices. When conflicts arise between
+convenience and principles, principles MUST prevail. Exceptions require documented
+justification in commit messages or PR descriptions.
 
-**Version**: [CONSTITUTION_VERSION] | **Ratified**: [RATIFICATION_DATE] | **Last Amended**: [LAST_AMENDED_DATE]
-<!-- Example: Version: 2.1.1 | Ratified: 2025-06-13 | Last Amended: 2025-07-16 -->
+### Amendment Process
+1. Amendments MUST be proposed via spec document using `/speckit.specify`
+2. Amendment spec MUST include rationale and impact analysis
+3. Version bump follows semantic versioning:
+   - **MAJOR**: Principle removal or backward-incompatible governance change
+   - **MINOR**: New principle added or existing principle materially expanded
+   - **PATCH**: Clarifications, wording improvements, typo fixes
+4. After approval, constitution MUST be updated via `/speckit.constitution`
+5. All dependent templates MUST be reviewed for consistency
+
+### Compliance Review
+- All pull requests MUST verify alignment with Core Principles I-V
+- Configuration additions MUST pass Security & Privacy review
+- New scripts MUST meet Quality Standards before merge
+- Template updates MUST maintain constitution references
+
+### Runtime Guidance
+For development workflow guidance, refer to `.claude/commands/` slash command
+implementations. For SpecKit usage patterns, see `.specify/templates/`.
+
+**Version**: 1.0.0 | **Ratified**: 2025-10-16 | **Last Amended**: 2025-10-16

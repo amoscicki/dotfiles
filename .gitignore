@@ -1,0 +1,44 @@
+# SpecKit working files
+.specify/specs/
+speckit/
+specs/
+
+# Sensitive data
+*.key
+*.secret
+credentials.*
+.env.local
+.env.*.local
+
+# SSH keys (never commit!)
+*.pem
+*.ppk
+id_rsa*
+id_ed25519*
+id_ecdsa*
+
+# OS-specific
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editor artifacts
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Backup files
+*.bak
+*.backup
+*.old
+
+# Logs
+*.log
+logs/
+
+# Temporary files
+temp/
+tmp/
+*.tmp
