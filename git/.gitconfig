@@ -1,0 +1,104 @@
+# Git Global Configuration
+# Location: ~/.gitconfig (symlinked from dotfiles/git/.gitconfig)
+# See: README.md for manual user customization instructions
+
+# ============================================================================
+# User Identity (FR-018: PLACEHOLDER VALUES - MANUAL CUSTOMIZATION REQUIRED)
+# ============================================================================
+# IMPORTANT: Replace these placeholder values with your actual information
+# Run these commands after installation:
+#   git config --global user.name "Your Actual Name"
+#   git config --global user.email "your.email@example.com"
+
+[user]
+    name = YOUR_NAME
+    email = your.email@example.com
+
+# ============================================================================
+# Core Settings
+# ============================================================================
+
+[core]
+    # Convert CRLF to LF on commit, LF to CRLF on checkout (Windows standard)
+    autocrlf = true
+
+    # Use VS Code as default editor
+    editor = code --wait
+
+    # Exclude patterns (global gitignore)
+    # Create ~/.gitignore_global for user-specific patterns
+
+# ============================================================================
+# Init Settings
+# ============================================================================
+
+[init]
+    # Use 'main' as default branch name for new repositories
+    defaultBranch = main
+
+# ============================================================================
+# Aliases - Common Git Shortcuts
+# ============================================================================
+
+[alias]
+    # Status
+    st = status
+    s = status --short
+
+    # Checkout
+    co = checkout
+    cob = checkout -b
+
+    # Branch
+    br = branch
+    bra = branch -a
+
+    # Commit
+    ci = commit
+    cam = commit -am
+
+    # Log
+    lg = log --oneline --graph --decorate
+    last = log -1 HEAD
+
+    # Diff
+    d = diff
+    ds = diff --staged
+
+    # Remote
+    rv = remote -v
+
+    # Pull with rebase
+    pr = pull --rebase
+
+# ============================================================================
+# Diff & Merge Tools (Optional)
+# ============================================================================
+# Uncomment and configure if you want to use VS Code for diffs/merges
+
+# [diff]
+#     tool = vscode
+# [difftool "vscode"]
+#     cmd = code --wait --diff $LOCAL $REMOTE
+#
+# [merge]
+#     tool = vscode
+# [mergetool "vscode"]
+#     cmd = code --wait $MERGED
+
+# ============================================================================
+# Colors (Optional Enhancement)
+# ============================================================================
+
+[color]
+    ui = auto
+    branch = auto
+    diff = auto
+    status = auto
+
+# ============================================================================
+# Notes
+# ============================================================================
+# - user.name and user.email MUST be customized manually (see README.md)
+# - This file is public-safe (no secrets or personal identifiable information)
+# - Compatible with Windows, macOS, and Linux (paths may vary)
