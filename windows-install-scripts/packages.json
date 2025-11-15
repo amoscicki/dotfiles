@@ -32,6 +32,7 @@
         { "name": "oh-my-posh", "description": "Prompt theme engine" },
         { "name": "starship", "description": "Cross-shell prompt" },
         { "name": "wezterm", "description": "GPU-accelerated terminal" },
+        { "name": "cascadiacode-nerd-font", "description": "Cascadia Code Nerd Font" },
         { "name": "nerd-fonts-firacode", "description": "FiraCode Nerd Font" }
       ]
     },
