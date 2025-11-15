@@ -203,7 +203,7 @@ foreach ($package in $packages) {
         $installResults.Success += $package
     }
     catch {
-        Write-Log "ERROR: Failed to install $package: $($_.Exception.Message)" -Level ERROR -LogFile $LogPath
+        Write-Log "ERROR: Failed to install ${package}: $($_.Exception.Message)" -Level ERROR -LogFile $LogPath
         $installResults.Failed += $package
         # Continue with next package (resilient mode - continue on failure)
     }
