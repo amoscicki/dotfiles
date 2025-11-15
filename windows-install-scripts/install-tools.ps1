@@ -122,7 +122,12 @@ function Show-MultiSelectMenu {
     }
 
     # Show multi-selection prompt with Spectre
-    $selectedChoices = Read-SpectreMultiSelection -Title $Title -Choices $choices -PageSize 15
+    # If AllSelected is true, pre-select all choices
+    if ($AllSelected) {
+        $selectedChoices = Read-SpectreMultiSelection -Title $Title -Choices $choices -PageSize 15 -Default $choices
+    } else {
+        $selectedChoices = Read-SpectreMultiSelection -Title $Title -Choices $choices -PageSize 15
+    }
 
     # Map selected choices back to original items
     $selectedItems = @()
@@ -197,7 +202,7 @@ if ($Interactive) {
 
         # Show group selection menu
         Write-Host ''
-        $selectedGroups = Show-MultiSelectMenu -Title 'Select Package Groups to Install' -Items $config.groups -Property 'name'
+        $selectedGroups = Show-MultiSelectMenu -Title 'Select Package Groups to Install' -Items $config.groups -Property 'name' -AllSelected $true
 
         if ($selectedGroups.Count -eq 0) {
             Write-Log 'No groups selected. Exiting.' -Level WARN -LogFile $LogPath
@@ -220,7 +225,7 @@ if ($Interactive) {
                 }
             }
 
-            $selectedPackages = Show-MultiSelectMenu -Title $menuTitle -Items $packageObjects -Property 'Display'
+            $selectedPackages = Show-MultiSelectMenu -Title $menuTitle -Items $packageObjects -Property 'Display' -AllSelected $true
 
             foreach ($pkg in $selectedPackages) {
                 $packages += $pkg.Name
