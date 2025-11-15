@@ -8,12 +8,6 @@
     git, nodejs, and pnpm with idempotency checks. Validates each tool is
     accessible in PATH after installation.
 
-.PARAMETER WhatIf
-    Preview actions without executing them (dry-run mode).
-
-.PARAMETER Verbose
-    Enable detailed diagnostic output.
-
 .PARAMETER LogPath
     Path to the log file. Defaults to logs/install-core-tools-YYYYMMDD-HHmmss.log
 
@@ -39,19 +33,51 @@
 #>
 [CmdletBinding(SupportsShouldProcess)]
 param(
-    [switch]$WhatIf,
-    [switch]$Verbose,
     [string]$LogPath
 )
 
 # Set error action preference
 $ErrorActionPreference = 'Stop'
 
-# Resolve script directory and import utilities
+# Resolve script directory
 $scriptRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
-. "$scriptRoot\utils\Test-Administrator.ps1"
-. "$scriptRoot\utils\Write-Log.ps1"
-. "$scriptRoot\utils\Test-Idempotent.ps1"
+
+#region Utility Functions
+
+function Test-Administrator {
+    $currentUser = [Security.Principal.WindowsIdentity]::GetCurrent()
+    $principal = New-Object Security.Principal.WindowsPrincipal($currentUser)
+    return $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+}
+
+function Write-Log {
+    param(
+        [Parameter(Mandatory = $true, Position = 0)]
+        [string]$Message,
+        [Parameter(Mandatory = $false)]
+        [ValidateSet('INFO', 'WARN', 'ERROR', 'DEBUG')]
+        [string]$Level = 'INFO',
+        [Parameter(Mandatory = $false)]
+        [string]$LogFile
+    )
+    $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
+    $logEntry = "[$timestamp] [$Level] $Message"
+    $colors = @{ 'INFO' = 'Green'; 'WARN' = 'Yellow'; 'ERROR' = 'Red'; 'DEBUG' = 'Cyan' }
+    Write-Host $logEntry -ForegroundColor $colors[$Level]
+    if ($LogFile) {
+        try {
+            $logDir = Split-Path -Path $LogFile -Parent
+            if ($logDir -and -not (Test-Path $logDir)) {
+                New-Item -Path $logDir -ItemType Directory -Force | Out-Null
+            }
+            Add-Content -Path $LogFile -Value $logEntry -Encoding UTF8
+        } catch {
+            Write-Warning "Failed to write to log file '$LogFile': $_"
+        }
+    }
+}
+
+#endregion
 
 # Setup logging
 if (-not $LogPath) {
@@ -76,11 +102,8 @@ if (-not (Test-Administrator)) {
 Write-Log "Administrator check: PASS" -Level INFO -LogFile $LogPath
 
 # Check Chocolatey is installed (FR-013 prerequisite check)
-$chocoInstalled = Test-Idempotent -Check {
-    Get-Command choco -ErrorAction SilentlyContinue
-}
-
-if (-not $chocoInstalled) {
+$chocoCmd = Get-Command choco -ErrorAction SilentlyContinue
+if (-not $chocoCmd) {
     Write-Log "ERROR: Chocolatey is not installed. Please run install-choco.ps1 first." -Level ERROR -LogFile $LogPath
     exit 2
 }
@@ -106,14 +129,9 @@ foreach ($tool in $coreTools) {
     Write-Log "Processing $($tool.DisplayName)..." -Level INFO -LogFile $LogPath
 
     # Check if already installed (idempotency - FR-009)
-    $toolInstalled = Test-Idempotent -Check {
-        $localPackage = choco list --local-only --exact $tool.Name 2>&1 | Select-String -Pattern "^$($tool.Name) "
-        if ($localPackage) { return $true }
-
-        # Also check if command is in PATH
-        $cmd = Get-Command $tool.Command -ErrorAction SilentlyContinue
-        return ($null -ne $cmd)
-    }
+    $localPackage = choco list --local-only --exact $tool.Name 2>&1 | Select-String -Pattern "^$($tool.Name) "
+    $toolCmd = Get-Command $tool.Command -ErrorAction SilentlyContinue
+    $toolInstalled = ($localPackage -or $toolCmd)
 
     if ($toolInstalled) {
         Write-Log "$($tool.DisplayName) is already installed. Skipping." -Level WARN -LogFile $LogPath
@@ -122,7 +140,7 @@ foreach ($tool in $coreTools) {
     }
 
     # WhatIf mode (FR-011)
-    if ($WhatIf) {
+    if ($WhatIfPreference -eq 'Continue') {
         Write-Log "WhatIf: Would install $($tool.DisplayName) via 'choco install $($tool.Name) -y'" -Level INFO -LogFile $LogPath
         continue
     }

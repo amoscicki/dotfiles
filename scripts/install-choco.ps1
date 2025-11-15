@@ -7,12 +7,6 @@
     it from https://chocolatey.org/install if needed. Requires Administrator
     privileges and internet connectivity.
 
-.PARAMETER WhatIf
-    Preview actions without executing them (dry-run mode).
-
-.PARAMETER Verbose
-    Enable detailed diagnostic output.
-
 .PARAMETER LogPath
     Path to the log file. Defaults to logs/install-choco-YYYYMMDD-HHmmss.log
 
@@ -38,19 +32,51 @@
 #>
 [CmdletBinding(SupportsShouldProcess)]
 param(
-    [switch]$WhatIf,
-    [switch]$Verbose,
     [string]$LogPath
 )
 
 # Set error action preference
 $ErrorActionPreference = 'Stop'
 
-# Resolve script directory and import utilities
+# Resolve script directory
 $scriptRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
-. "$scriptRoot\utils\Test-Administrator.ps1"
-. "$scriptRoot\utils\Write-Log.ps1"
-. "$scriptRoot\utils\Test-Idempotent.ps1"
+
+#region Utility Functions
+
+function Test-Administrator {
+    $currentUser = [Security.Principal.WindowsIdentity]::GetCurrent()
+    $principal = New-Object Security.Principal.WindowsPrincipal($currentUser)
+    return $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+}
+
+function Write-Log {
+    param(
+        [Parameter(Mandatory = $true, Position = 0)]
+        [string]$Message,
+        [Parameter(Mandatory = $false)]
+        [ValidateSet('INFO', 'WARN', 'ERROR', 'DEBUG')]
+        [string]$Level = 'INFO',
+        [Parameter(Mandatory = $false)]
+        [string]$LogFile
+    )
+    $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
+    $logEntry = "[$timestamp] [$Level] $Message"
+    $colors = @{ 'INFO' = 'Green'; 'WARN' = 'Yellow'; 'ERROR' = 'Red'; 'DEBUG' = 'Cyan' }
+    Write-Host $logEntry -ForegroundColor $colors[$Level]
+    if ($LogFile) {
+        try {
+            $logDir = Split-Path -Path $LogFile -Parent
+            if ($logDir -and -not (Test-Path $logDir)) {
+                New-Item -Path $logDir -ItemType Directory -Force | Out-Null
+            }
+            Add-Content -Path $LogFile -Value $logEntry -Encoding UTF8
+        } catch {
+            Write-Warning "Failed to write to log file '$LogFile': $_"
+        }
+    }
+}
+
+#endregion
 
 # Setup logging
 if (-not $LogPath) {
@@ -75,11 +101,8 @@ if (-not (Test-Administrator)) {
 Write-Log "Administrator check: PASS" -Level INFO -LogFile $LogPath
 
 # Check if Chocolatey already installed (FR-009: Idempotency)
-$chocoInstalled = Test-Idempotent -Check {
-    Get-Command choco -ErrorAction SilentlyContinue
-}
-
-if ($chocoInstalled) {
+$chocoCmd = Get-Command choco -ErrorAction SilentlyContinue
+if ($chocoCmd) {
     Write-Log "Chocolatey is already installed. Skipping installation." -Level WARN -LogFile $LogPath
     $chocoVersion = choco --version
     Write-Log "Installed version: $chocoVersion" -Level INFO -LogFile $LogPath
@@ -87,7 +110,7 @@ if ($chocoInstalled) {
 }
 
 # WhatIf mode (FR-011)
-if ($WhatIf) {
+if ($WhatIfPreference -eq 'Continue') {
     Write-Log "WhatIf: Would install Chocolatey from https://chocolatey.org/install" -Level INFO -LogFile $LogPath
     exit 0
 }

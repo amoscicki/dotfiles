@@ -8,18 +8,12 @@
     recovery, and displays post-installation instructions. Supports idempotent
     execution for safe resumption after interruptions.
 
-.PARAMETER WhatIf
-    Preview all actions without executing them (dry-run mode).
-
 .PARAMETER Force
     Skip confirmations in child scripts (passed to symlink.ps1).
 
 .PARAMETER Unattended
     Full automation mode - no user interaction required. Implies -Force for
     symlink operations. Suitable for CI/CD or scripted deployments.
-
-.PARAMETER Verbose
-    Enable detailed diagnostic output across all child scripts.
 
 .PARAMETER LogPath
     Path to the master log file. Defaults to logs/install-YYYYMMDD-HHmmss.log
@@ -51,10 +45,8 @@
 #>
 [CmdletBinding(SupportsShouldProcess)]
 param(
-    [switch]$WhatIf,
     [switch]$Force,
     [switch]$Unattended,
-    [switch]$Verbose,
     [string]$LogPath
 )
 
@@ -65,9 +57,56 @@ $ErrorActionPreference = 'Stop'
 $scriptRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
 $dotfilesRoot = Split-Path -Parent $scriptRoot
 
-# Import utilities
-. "$scriptRoot\utils\Test-Administrator.ps1"
-. "$scriptRoot\utils\Write-Log.ps1"
+#region Utility Functions
+
+# Test-Administrator: Check if running with admin privileges
+function Test-Administrator {
+    $currentUser = [Security.Principal.WindowsIdentity]::GetCurrent()
+    $principal = New-Object Security.Principal.WindowsPrincipal($currentUser)
+    return $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+}
+
+# Write-Log: Write timestamped log messages to console and file
+function Write-Log {
+    param(
+        [Parameter(Mandatory = $true, Position = 0)]
+        [string]$Message,
+
+        [Parameter(Mandatory = $false)]
+        [ValidateSet('INFO', 'WARN', 'ERROR', 'DEBUG')]
+        [string]$Level = 'INFO',
+
+        [Parameter(Mandatory = $false)]
+        [string]$LogFile
+    )
+
+    $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
+    $logEntry = "[$timestamp] [$Level] $Message"
+
+    $colors = @{
+        'INFO'  = 'Green'
+        'WARN'  = 'Yellow'
+        'ERROR' = 'Red'
+        'DEBUG' = 'Cyan'
+    }
+
+    Write-Host $logEntry -ForegroundColor $colors[$Level]
+
+    if ($LogFile) {
+        try {
+            $logDir = Split-Path -Path $LogFile -Parent
+            if ($logDir -and -not (Test-Path $logDir)) {
+                New-Item -Path $logDir -ItemType Directory -Force | Out-Null
+            }
+            Add-Content -Path $LogFile -Value $logEntry -Encoding UTF8
+        }
+        catch {
+            Write-Warning "Failed to write to log file '$LogFile': $_"
+        }
+    }
+}
+
+#endregion
 
 # Setup logging
 if (-not $LogPath) {
@@ -88,7 +127,7 @@ Write-Log "=====================================================================
 Write-Log "Started: $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')" -Level INFO -LogFile $LogPath
 Write-Log "Dotfiles root: $dotfilesRoot" -Level INFO -LogFile $LogPath
 Write-Log "Log file: $LogPath" -Level INFO -LogFile $LogPath
-Write-Log "Parameters: WhatIf=$WhatIf, Force=$Force, Unattended=$Unattended, Verbose=$Verbose" -Level INFO -LogFile $LogPath
+Write-Log "Parameters: WhatIf=$WhatIfPreference, Force=$Force, Unattended=$Unattended, Verbose=$($VerbosePreference -ne 'SilentlyContinue')" -Level INFO -LogFile $LogPath
 Write-Log "===============================================================================" -Level INFO -LogFile $LogPath
 
 # Check Administrator privileges (FR-008)
@@ -159,7 +198,7 @@ foreach ($step in $steps) {
 
     Write-Log "" -Level INFO -LogFile $LogPath
     Write-Log "===============================================================================" -Level INFO -LogFile $LogPath
-    Write-Log "Step $stepNum/$totalSteps: $($step.Name)" -Level INFO -LogFile $LogPath
+    Write-Log "Step ${stepNum}/${totalSteps}: $($step.Name)" -Level INFO -LogFile $LogPath
     Write-Log "===============================================================================" -Level INFO -LogFile $LogPath
 
     $scriptPath = Join-Path $scriptRoot $step.Script
@@ -184,11 +223,11 @@ foreach ($step in $steps) {
         LogPath = $LogPath
     }
 
-    if ($WhatIf) {
+    if ($WhatIfPreference -eq 'Continue') {
         $scriptParams['WhatIf'] = $true
     }
 
-    if ($Verbose) {
+    if ($VerbosePreference -ne 'SilentlyContinue') {
         $scriptParams['Verbose'] = $true
     }
 
@@ -261,14 +300,14 @@ Write-Log "Duration: $($duration.Minutes) minutes, $($duration.Seconds) seconds"
 Write-Log "" -Level INFO -LogFile $LogPath
 Write-Log "Successful steps: $($results.Success.Count)" -Level INFO -LogFile $LogPath
 foreach ($item in $results.Success) {
-    Write-Log "  ✓ $item" -Level INFO -LogFile $LogPath
+    Write-Log "  [OK] $item" -Level INFO -LogFile $LogPath
 }
 
 if ($results.Failed.Count -gt 0) {
     Write-Log "" -Level INFO -LogFile $LogPath
     Write-Log "Failed steps: $($results.Failed.Count)" -Level ERROR -LogFile $LogPath
     foreach ($item in $results.Failed) {
-        Write-Log "  ✗ $item" -Level ERROR -LogFile $LogPath
+        Write-Log "  [FAIL] $item" -Level ERROR -LogFile $LogPath
     }
 }
 
@@ -281,7 +320,7 @@ if ($results.Skipped.Count -gt 0) {
 }
 
 # Post-installation instructions (FR-012, FR-014, FR-018)
-if ($results.Failed.Count -eq 0 -and -not $WhatIf) {
+if ($results.Failed.Count -eq 0 -and $WhatIfPreference -ne 'Continue') {
     Write-Log "" -Level INFO -LogFile $LogPath
     Write-Log "===============================================================================" -Level INFO -LogFile $LogPath
     Write-Log "  Post-Installation Steps (REQUIRED)" -Level INFO -LogFile $LogPath
