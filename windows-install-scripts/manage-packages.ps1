@@ -140,7 +140,7 @@ function Show-SearchAndAdd {
         foreach ($pkg in $packages) {
             $packageOptions += "$($pkg.Name) (v$($pkg.Version))"
         }
-        $packageOptions += "< Back to search"
+        $packageOptions += '< Back to search'
 
         $selected = Show-Menu -Title "Search Results for '$searchTerm' - Select package to add" -Options $packageOptions
 
@@ -173,7 +173,7 @@ function Show-SearchAndAdd {
         foreach ($group in $config.groups) {
             $groupNames += $group.name
         }
-        $groupNames += "< Create new group"
+        $groupNames += '< Create new group'
 
         $groupIndex = Show-Menu -Title "Select group to add package to" -Options $groupNames
 
@@ -228,9 +228,10 @@ function Show-BrowseAndRemove {
         # Show groups
         $groupNames = @()
         foreach ($group in $config.groups) {
-            $groupNames += "$($group.name) ($($group.packages.Count) packages)"
+            $count = $group.packages.Count
+            $groupNames += "$($group.name) ($count packages)"
         }
-        $groupNames += "< Back"
+        $groupNames += '< Back'
 
         $groupIndex = Show-Menu -Title "Browse Packages - Select Group" -Options $groupNames
 
@@ -246,11 +247,11 @@ function Show-BrowseAndRemove {
             foreach ($pkg in $selectedGroup.packages) {
                 $packageNames += "$($pkg.name) - $($pkg.description)"
             }
-            $packageNames += "< Delete this group"
-            $packageNames += "< Back to groups"
+            $packageNames += '< Delete this group'
+            $packageNames += '< Back to groups'
 
             if ($selectedGroup.packages.Count -eq 0) {
-                $packageNames = @("< No packages in this group", "< Delete this group", "< Back to groups")
+                $packageNames = @('< No packages in this group', '< Delete this group', '< Back to groups')
             }
 
             $pkgIndex = Show-Menu -Title "$($selectedGroup.name) - Select package to remove" -Options $packageNames
