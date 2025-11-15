@@ -41,6 +41,10 @@ if (Test-Path $chocolateyProfile) {
 # ============================================================================
 # Short aliases for frequently used commands
 
+# Python 3.12 aliases
+Set-Alias -Name python312 -Value "C:\Users\ArkadiuszMoscicki\AppData\Local\Programs\Python\Python312\python.exe" -ErrorAction SilentlyContinue
+Set-Alias -Name pip312 -Value "C:\Users\ArkadiuszMoscicki\AppData\Local\Programs\Python\Python312\Scripts\pip.exe" -ErrorAction SilentlyContinue
+
 # Git shortcuts
 Set-Alias -Name g -Value git -ErrorAction SilentlyContinue
 
@@ -48,6 +52,12 @@ Set-Alias -Name g -Value git -ErrorAction SilentlyContinue
 if (Get-Command kubectl -ErrorAction SilentlyContinue) {
     Set-Alias -Name k -Value kubectl
 }
+
+# npm -> pnpm alias (redirect all npm commands to pnpm)
+function NPM-PNPM-Alias {
+    pnpm $args
+}
+Set-Alias -Name npm -Value NPM-PNPM-Alias -Option AllScope -ErrorAction SilentlyContinue
 
 # ============================================================================
 # Custom Functions
@@ -70,9 +80,32 @@ function which {
     }
 }
 
+# Function: Remove-NodeModules - Recursively remove all node_modules folders
+# Usage: Remove-NodeModules
+function Remove-NodeModules {
+    $foldersToRemove = Get-ChildItem -Path . -Filter "node_modules" -Directory -Recurse
+
+    foreach ($folder in $foldersToRemove) {
+        Write-Host "Removing: $($folder.FullName)" -ForegroundColor Yellow
+        Remove-Item -Path $folder.FullName -Recurse -Force
+    }
+
+    Write-Host "Completed removing node_modules folders." -ForegroundColor Green
+}
+
 # ============================================================================
 # Welcome Message
 # ============================================================================
 
 Write-Host "PowerShell $($PSVersionTable.PSVersion) - Windows 11 Development Environment" -ForegroundColor Cyan
 Write-Host "Dotfiles: https://github.com/amoscicki/dotfiles" -ForegroundColor DarkGray
+
+# ============================================================================
+# Kiro Shell Integration
+# ============================================================================
+# Integrates with Kiro terminal if detected
+# See: https://github.com/kiro-sh/kiro
+
+if ($env:TERM_PROGRAM -eq "kiro") {
+    . "$(kiro --locate-shell-integration-path pwsh)"
+}
