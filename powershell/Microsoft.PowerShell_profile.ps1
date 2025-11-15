@@ -97,6 +97,18 @@ function Remove-NodeModules {
 # Welcome Message
 # ============================================================================
 
+# ASCII Art Banner
+Write-Host @"
+    :::     :::::::::   ::::::::  ::::    ::::      ::: ::::::::::: :::::::::::       ::::::::  :::        :::::::::::
+  :+: :+:   :+:    :+: :+:    :+: +:+:+: :+:+:+   :+: :+:   :+:         :+:          :+:    :+: :+:            :+:
+ +:+   +:+  +:+    +:+ +:+    +:+ +:+ +:+:+ +:+  +:+   +:+  +:+         +:+          +:+        +:+            +:+
++#++:++#++: +#++:++#:  +#+    +:+ +#+  +:+  +#+ +#++:++#++: +#+         +#+          +#+        +#+            +#+
++#+     +#+ +#+    +#+ +#+    +#+ +#+       +#+ +#+     +#+ +#+         +#+          +#+        +#+            +#+
+#+#     #+# #+#    #+# #+#    #+# #+#       #+# #+#     #+# #+#         #+#          #+#    #+# #+#            #+#
+###     ### ###    ###  ########  ###       ### ###     ### ###         ###           ########  ########## ###########
+"@ -ForegroundColor Cyan
+
+Write-Host ""
 Write-Host "PowerShell $($PSVersionTable.PSVersion) - Windows 11 Development Environment" -ForegroundColor Cyan
 Write-Host "Dotfiles: https://github.com/amoscicki/dotfiles" -ForegroundColor DarkGray
 
