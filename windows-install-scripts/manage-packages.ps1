@@ -40,7 +40,7 @@ function Show-Menu {
         $titleDisplay = '=== ' + $Title + ' ==='
         Write-Host $titleDisplay -ForegroundColor Cyan
         Write-Host ''
-        Write-Host 'Use ↑/↓ arrows to navigate, ENTER to select, ESC to go back' -ForegroundColor Yellow
+        Write-Host 'Use UP/DOWN arrows to navigate, ENTER to select, ESC to go back' -ForegroundColor Yellow
         Write-Host ''
 
         for ($i = 0; $i < $Options.Count; $i++) {
