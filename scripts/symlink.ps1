@@ -218,10 +218,7 @@ foreach ($mapping in $symlinkMappings) {
 
         if ($WhatIfPreference -ne 'Continue') {
             try {
-                # Remove existing item (file or symlink)
-                Remove-Item -Path $mapping.Target -Force -ErrorAction Stop
-
-                # Copy original to backup location
+                # Backup original file BEFORE removing it
                 if ($existingItem.LinkType -ne 'SymbolicLink') {
                     Copy-Item -Path $existingItem.FullName -Destination $backupPath -Force -ErrorAction Stop
                     Write-Log "Backup created successfully." -Level INFO -LogFile $LogPath
@@ -229,6 +226,9 @@ foreach ($mapping in $symlinkMappings) {
                 else {
                     Write-Log "Existing item was a symlink, no backup needed." -Level INFO -LogFile $LogPath
                 }
+
+                # Now remove existing item (file or symlink)
+                Remove-Item -Path $mapping.Target -Force -ErrorAction Stop
             }
             catch {
                 Write-Log "ERROR: Failed to backup existing file: $($_.Exception.Message)" -Level ERROR -LogFile $LogPath
