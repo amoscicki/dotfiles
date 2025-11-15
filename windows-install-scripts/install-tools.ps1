@@ -73,8 +73,8 @@ function Write-Log {
         [Parameter(Mandatory = $false)]
         [string]$LogFile
     )
-    $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
-    $logEntry = "[$timestamp] [$Level] $Message"
+    $timestamp = Get-Date -Format 'yyyy-MM-dd HH:mm:ss'
+    $logEntry = '[' + $timestamp + '] [' + $Level + '] ' + $Message
     $colors = @{ 'INFO' = 'Green'; 'WARN' = 'Yellow'; 'ERROR' = 'Red'; 'DEBUG' = 'Cyan' }
     Write-Host $logEntry -ForegroundColor $colors[$Level]
     if ($LogFile) {
@@ -85,7 +85,8 @@ function Write-Log {
             }
             Add-Content -Path $LogFile -Value $logEntry -Encoding UTF8
         } catch {
-            Write-Warning "Failed to write to log file '$LogFile': $_"
+            $warnMsg = 'Failed to write to log file ' + $LogFile + ': ' + $_
+            Write-Warning $warnMsg
         }
     }
 }
@@ -107,7 +108,7 @@ function Show-MultiSelectMenu {
     )
 
     $selected = @{}
-    for ($i = 0; $i < $Items.Count; $i++) {
+    for ($i = 0; $i -lt $Items.Count; $i++) {
         $selected[$i] = $AllSelected
     }
 
@@ -115,26 +116,29 @@ function Show-MultiSelectMenu {
 
     while ($true) {
         Clear-Host
-        Write-Host "=== $Title ===" -ForegroundColor Cyan
-        Write-Host ""
-        Write-Host "Use ↑/↓ arrows to navigate, SPACE to toggle, ENTER to confirm, A to select all, N to select none" -ForegroundColor Yellow
-        Write-Host ""
+        $titleDisplay = '=== ' + $Title + ' ==='
+        Write-Host $titleDisplay -ForegroundColor Cyan
+        Write-Host ''
+        Write-Host 'Use UP/DOWN arrows to navigate, SPACE to toggle, ENTER to confirm, A to select all, N to select none' -ForegroundColor Yellow
+        Write-Host ''
 
-        for ($i = 0; $i < $Items.Count; $i++) {
+        for ($i = 0; $i -lt $Items.Count; $i++) {
             $item = $Items[$i]
             $displayText = if ($Property) { $item.$Property } else { $item }
             $checkbox = if ($selected[$i]) { "[X]" } else { "[ ]" }
             $prefix = if ($i -eq $currentIndex) { ">" } else { " " }
 
             $color = if ($i -eq $currentIndex) { "Green" } else { "White" }
-            Write-Host "$prefix $checkbox $displayText" -ForegroundColor $color
+            $lineDisplay = $prefix + ' ' + $checkbox + ' ' + $displayText
+            Write-Host $lineDisplay -ForegroundColor $color
         }
 
-        Write-Host ""
+        Write-Host ''
         $selectedCount = ($selected.Values | Where-Object { $_ }).Count
-        Write-Host "Selected: $selectedCount / $($Items.Count)" -ForegroundColor Cyan
+        $selectionMsg = 'Selected: ' + $selectedCount + ' / ' + $Items.Count
+        Write-Host $selectionMsg -ForegroundColor Cyan
 
-        $key = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
+        $key = $Host.UI.RawUI.ReadKey('NoEcho,IncludeKeyDown')
 
         switch ($key.VirtualKeyCode) {
             38 { # Up arrow
@@ -147,18 +151,18 @@ function Show-MultiSelectMenu {
                 $selected[$currentIndex] = -not $selected[$currentIndex]
             }
             65 { # 'A' key - select all
-                for ($i = 0; $i < $Items.Count; $i++) {
+                for ($i = 0; $i -lt $Items.Count; $i++) {
                     $selected[$i] = $true
                 }
             }
             78 { # 'N' key - select none
-                for ($i = 0; $i < $Items.Count; $i++) {
+                for ($i = 0; $i -lt $Items.Count; $i++) {
                     $selected[$i] = $false
                 }
             }
             13 { # Enter
                 $selectedItems = @()
-                for ($i = 0; $i < $Items.Count; $i++) {
+                for ($i = 0; $i -lt $Items.Count; $i++) {
                     if ($selected[$i]) {
                         $selectedItems += $Items[$i]
                     }
@@ -176,8 +180,9 @@ function Show-MultiSelectMenu {
 
 # Setup logging
 if (-not $LogPath) {
-    $timestamp = Get-Date -Format "yyyyMMdd-HHmmss"
-    $LogPath = Join-Path $scriptRoot "..\logs\install-tools-$timestamp.log"
+    $timestamp = Get-Date -Format 'yyyyMMdd-HHmmss'
+    $logFileName = 'install-tools-' + $timestamp + '.log'
+    $LogPath = Join-Path $scriptRoot ('..\logs\' + $logFileName)
 }
 
 # Ensure log directory exists
@@ -186,36 +191,37 @@ if (-not (Test-Path $logDir)) {
     New-Item -Path $logDir -ItemType Directory -Force | Out-Null
 }
 
-Write-Log "=== Extended Tools Installation Script Started ===" -Level INFO -LogFile $LogPath
+Write-Log '=== Extended Tools Installation Script Started ===' -Level INFO -LogFile $LogPath
 
 # Check Administrator privileges (FR-008)
 if (-not (Test-Administrator)) {
-    Write-Log "ERROR: Administrator privileges required. Please run PowerShell as Administrator." -Level ERROR -LogFile $LogPath
+    Write-Log 'ERROR: Administrator privileges required. Please run PowerShell as Administrator.' -Level ERROR -LogFile $LogPath
     exit 2
 }
 
-Write-Log "Administrator check: PASS" -Level INFO -LogFile $LogPath
+Write-Log 'Administrator check: PASS' -Level INFO -LogFile $LogPath
 
 # Check Chocolatey is installed
 $chocoCmd = Get-Command choco -ErrorAction SilentlyContinue
 if (-not $chocoCmd) {
-    Write-Log "ERROR: Chocolatey is not installed. Please run install-choco.ps1 first." -Level ERROR -LogFile $LogPath
+    Write-Log 'ERROR: Chocolatey is not installed. Please run install-choco.ps1 first.' -Level ERROR -LogFile $LogPath
     exit 2
 }
 
-Write-Log "Chocolatey prerequisite check: PASS" -Level INFO -LogFile $LogPath
+Write-Log 'Chocolatey prerequisite check: PASS' -Level INFO -LogFile $LogPath
 
 # Load packages based on mode (Interactive or File-based)
 $packages = @()
 
 if ($Interactive) {
-    Write-Log "Interactive mode enabled" -Level INFO -LogFile $LogPath
+    Write-Log 'Interactive mode enabled' -Level INFO -LogFile $LogPath
 
     # Check if packages.json exists
-    $packagesJsonPath = Join-Path $scriptRoot "packages.json"
+    $packagesJsonPath = Join-Path $scriptRoot 'packages.json'
     if (-not (Test-Path $packagesJsonPath)) {
-        Write-Log "ERROR: packages.json not found at: $packagesJsonPath" -Level ERROR -LogFile $LogPath
-        Write-Log "Interactive mode requires packages.json configuration file" -Level ERROR -LogFile $LogPath
+        $notFoundMsg = 'ERROR: packages.json not found at: ' + $packagesJsonPath
+        Write-Log $notFoundMsg -Level ERROR -LogFile $LogPath
+        Write-Log 'Interactive mode requires packages.json configuration file' -Level ERROR -LogFile $LogPath
         exit 3
     }
 
@@ -224,41 +230,44 @@ if ($Interactive) {
         $config = Get-Content $packagesJsonPath -Raw | ConvertFrom-Json
 
         # Show group selection menu
-        Write-Host ""
-        $selectedGroups = Show-MultiSelectMenu -Title "Select Package Groups to Install" -Items $config.groups -Property "name"
+        Write-Host ''
+        $selectedGroups = Show-MultiSelectMenu -Title 'Select Package Groups to Install' -Items $config.groups -Property 'name'
 
         if ($selectedGroups.Count -eq 0) {
-            Write-Log "No groups selected. Exiting." -Level WARN -LogFile $LogPath
+            Write-Log 'No groups selected. Exiting.' -Level WARN -LogFile $LogPath
             exit 0
         }
 
         # For each selected group, show package selection menu
         foreach ($group in $selectedGroups) {
-            Write-Host ""
+            Write-Host ''
             $groupName = $group.name
             $groupDesc = $group.description
 
-            $menuTitle = "$groupName - $groupDesc"
+            $menuTitle = $groupName + ' - ' + $groupDesc
             $packageObjects = @()
             foreach ($pkg in $group.packages) {
+                $displayText = $pkg.name + ' - ' + $pkg.description
                 $packageObjects += [PSCustomObject]@{
-                    Display = "$($pkg.name) - $($pkg.description)"
+                    Display = $displayText
                     Name = $pkg.name
                 }
             }
 
-            $selectedPackages = Show-MultiSelectMenu -Title $menuTitle -Items $packageObjects -Property "Display"
+            $selectedPackages = Show-MultiSelectMenu -Title $menuTitle -Items $packageObjects -Property 'Display'
 
             foreach ($pkg in $selectedPackages) {
                 $packages += $pkg.Name
             }
         }
 
-        Write-Host ""
-        Write-Log "Selected $($packages.Count) packages for installation" -Level INFO -LogFile $LogPath
+        Write-Host ''
+        $pkgCountMsg = 'Selected ' + $packages.Count + ' packages for installation'
+        Write-Log $pkgCountMsg -Level INFO -LogFile $LogPath
     }
     catch {
-        Write-Log "ERROR: Failed to load packages.json: $($_.Exception.Message)" -Level ERROR -LogFile $LogPath
+        $errorMsg = 'ERROR: Failed to load packages.json: ' + $_.Exception.Message
+        Write-Log $errorMsg -Level ERROR -LogFile $LogPath
         exit 3
     }
 }
@@ -271,11 +280,13 @@ else {
 
     # Check package list file exists
     if (-not (Test-Path $PackageListPath)) {
-        Write-Log "ERROR: Package list file not found: $PackageListPath" -Level ERROR -LogFile $LogPath
+        $notFoundMsg = 'ERROR: Package list file not found: ' + $PackageListPath
+        Write-Log $notFoundMsg -Level ERROR -LogFile $LogPath
         exit 3
     }
 
-    Write-Log "Package list file: $PackageListPath" -Level INFO -LogFile $LogPath
+    $fileMsg = 'Package list file: ' + $PackageListPath
+    Write-Log $fileMsg -Level INFO -LogFile $LogPath
 
     # Read and parse package list (data-model.md §1)
     try {
@@ -298,17 +309,19 @@ else {
             Where-Object { $_ -ne '' } |
             Select-Object -Unique  # Remove duplicates
 
-        Write-Log "Parsed $($packages.Count) unique packages from list" -Level INFO -LogFile $LogPath
+        $parsedMsg = 'Parsed ' + $packages.Count + ' unique packages from list'
+        Write-Log $parsedMsg -Level INFO -LogFile $LogPath
     }
     catch {
-        Write-Log "ERROR: Failed to read package list: $($_.Exception.Message)" -Level ERROR -LogFile $LogPath
+        $errorMsg = 'ERROR: Failed to read package list: ' + $_.Exception.Message
+        Write-Log $errorMsg -Level ERROR -LogFile $LogPath
         exit 3
     }
 }
 
 # Check if any packages were selected
 if ($packages.Count -eq 0) {
-    Write-Log "WARNING: No packages selected. Nothing to install." -Level WARN -LogFile $LogPath
+    Write-Log 'WARNING: No packages selected. Nothing to install.' -Level WARN -LogFile $LogPath
     exit 0
 }
 
@@ -322,91 +335,112 @@ $installResults = @{
 
 # Install each package
 foreach ($package in $packages) {
-    Write-Log "Processing package: $package" -Level INFO -LogFile $LogPath
+    $procMsg = 'Processing package: ' + $package
+    Write-Log $procMsg -Level INFO -LogFile $LogPath
 
     # Check if package is already installed (idempotency - FR-009)
-    $localPackage = choco list --local-only --exact $package 2>&1 | Select-String -Pattern "^$package "
+    $packagePattern = '^' + $package + ' '
+    $localPackage = choco list --local-only --exact $package 2>&1 | Select-String -Pattern $packagePattern
     if ($localPackage) {
-        Write-Log "$package is already installed. Skipping." -Level WARN -LogFile $LogPath
+        $skipMsg = $package + ' is already installed. Skipping.'
+        Write-Log $skipMsg -Level WARN -LogFile $LogPath
         $installResults.Skipped += $package
         continue
     }
 
     # WhatIf mode (FR-011)
     if ($WhatIfPreference -eq 'Continue') {
-        Write-Log "WhatIf: Would install $package via 'choco install $package -y'" -Level INFO -LogFile $LogPath
+        $whatIfMsg = 'WhatIf: Would install ' + $package + ' via choco install ' + $package + ' -y'
+        Write-Log $whatIfMsg -Level INFO -LogFile $LogPath
         continue
     }
 
     # Install the package
     try {
-        Write-Log "Installing $package..." -Level INFO -LogFile $LogPath
+        $installMsg = 'Installing ' + $package + '...'
+        Write-Log $installMsg -Level INFO -LogFile $LogPath
 
         $installOutput = choco install $package -y 2>&1
 
         # Exit codes: 0 = success, 3010 = success but reboot required
         if ($LASTEXITCODE -ne 0 -and $LASTEXITCODE -ne 3010) {
-            throw "Chocolatey install command failed with exit code $LASTEXITCODE"
+            $errorMsg = 'Chocolatey install command failed with exit code ' + $LASTEXITCODE
+            throw $errorMsg
         }
 
         if ($LASTEXITCODE -eq 3010) {
-            Write-Log "$package installation completed successfully (reboot required)." -Level WARN -LogFile $LogPath
+            $rebootMsg = $package + ' installation completed successfully (reboot required).'
+            Write-Log $rebootMsg -Level WARN -LogFile $LogPath
             $installResults.RebootRequired += $package
         }
         else {
-            Write-Log "$package installation completed successfully." -Level INFO -LogFile $LogPath
+            $successMsg = $package + ' installation completed successfully.'
+            Write-Log $successMsg -Level INFO -LogFile $LogPath
         }
 
         $installResults.Success += $package
     }
     catch {
-        Write-Log "ERROR: Failed to install ${package}: $($_.Exception.Message)" -Level ERROR -LogFile $LogPath
+        $errorMsg = 'ERROR: Failed to install ' + $package + ': ' + $_.Exception.Message
+        Write-Log $errorMsg -Level ERROR -LogFile $LogPath
         $installResults.Failed += $package
         # Continue with next package (resilient mode - continue on failure)
     }
 }
 
 # Refresh environment variables for current session
-$env:Path = [System.Environment]::GetEnvironmentVariable("Path", "Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path", "User")
+$machinePath = [System.Environment]::GetEnvironmentVariable('Path', 'Machine')
+$userPath = [System.Environment]::GetEnvironmentVariable('Path', 'User')
+$env:Path = $machinePath + ';' + $userPath
 
 # Validate oh-my-posh is accessible (FR-015, US2 acceptance scenario 4)
 $ohMyPoshCommand = Get-Command oh-my-posh -ErrorAction SilentlyContinue
 if ($ohMyPoshCommand) {
-    Write-Log "oh-my-posh is available in PATH: $($ohMyPoshCommand.Source)" -Level INFO -LogFile $LogPath
+    $poshPath = $ohMyPoshCommand.Source
+    $logMsg = 'oh-my-posh is available in PATH: ' + $poshPath
+    Write-Log $logMsg -Level INFO -LogFile $LogPath
 } else {
-    Write-Log "WARNING: oh-my-posh not found in PATH. May require session restart if it was just installed." -Level WARN -LogFile $LogPath
+    Write-Log 'WARNING: oh-my-posh not found in PATH. May require session restart if it was just installed.' -Level WARN -LogFile $LogPath
 }
 
 # Summary report
-Write-Log "=== Installation Summary ===" -Level INFO -LogFile $LogPath
-Write-Log "Total packages processed: $($packages.Count)" -Level INFO -LogFile $LogPath
-Write-Log "Successfully installed: $($installResults.Success.Count)" -Level INFO -LogFile $LogPath
+Write-Log '=== Installation Summary ===' -Level INFO -LogFile $LogPath
+$totalMsg = 'Total packages processed: ' + $packages.Count
+Write-Log $totalMsg -Level INFO -LogFile $LogPath
+$successMsg = 'Successfully installed: ' + $installResults.Success.Count
+Write-Log $successMsg -Level INFO -LogFile $LogPath
 if ($installResults.Success.Count -gt 0) {
-    Write-Log "  - $($installResults.Success -join ', ')" -Level INFO -LogFile $LogPath
+    $successList = '  - ' + ($installResults.Success -join ', ')
+    Write-Log $successList -Level INFO -LogFile $LogPath
 }
-Write-Log "Skipped (already installed): $($installResults.Skipped.Count)" -Level INFO -LogFile $LogPath
+$skippedMsg = 'Skipped (already installed): ' + $installResults.Skipped.Count
+Write-Log $skippedMsg -Level INFO -LogFile $LogPath
 if ($installResults.Skipped.Count -gt 0) {
-    Write-Log "  - $($installResults.Skipped -join ', ')" -Level INFO -LogFile $LogPath
+    $skippedList = '  - ' + ($installResults.Skipped -join ', ')
+    Write-Log $skippedList -Level INFO -LogFile $LogPath
 }
-Write-Log "Failed: $($installResults.Failed.Count)" -Level INFO -LogFile $LogPath
+$failedMsg = 'Failed: ' + $installResults.Failed.Count
+Write-Log $failedMsg -Level INFO -LogFile $LogPath
 if ($installResults.Failed.Count -gt 0) {
-    Write-Log "  - $($installResults.Failed -join ', ')" -Level ERROR -LogFile $LogPath
+    $failedList = '  - ' + ($installResults.Failed -join ', ')
+    Write-Log $failedList -Level ERROR -LogFile $LogPath
 }
 
 # Display reboot warning if any packages require it
 if ($installResults.RebootRequired.Count -gt 0) {
-    Write-Log "" -Level INFO -LogFile $LogPath
-    Write-Log "IMPORTANT: System reboot required for the following packages:" -Level WARN -LogFile $LogPath
-    Write-Log "  - $($installResults.RebootRequired -join ', ')" -Level WARN -LogFile $LogPath
-    Write-Log "Please restart your computer to complete the installation." -Level WARN -LogFile $LogPath
+    Write-Log '' -Level INFO -LogFile $LogPath
+    Write-Log 'IMPORTANT: System reboot required for the following packages:' -Level WARN -LogFile $LogPath
+    $rebootList = '  - ' + ($installResults.RebootRequired -join ', ')
+    Write-Log $rebootList -Level WARN -LogFile $LogPath
+    Write-Log 'Please restart your computer to complete the installation.' -Level WARN -LogFile $LogPath
 }
 
 # Exit with code 0 even if some packages failed (resilient mode)
 # Fatal errors (missing prerequisites, file not found) exit with non-zero earlier
 if ($installResults.Failed.Count -gt 0) {
-    Write-Log "=== Extended Tools Installation Script Completed with Some Failures ===" -Level WARN -LogFile $LogPath
+    Write-Log '=== Extended Tools Installation Script Completed with Some Failures ===' -Level WARN -LogFile $LogPath
 } else {
-    Write-Log "=== Extended Tools Installation Script Completed Successfully ===" -Level INFO -LogFile $LogPath
+    Write-Log '=== Extended Tools Installation Script Completed Successfully ===' -Level INFO -LogFile $LogPath
 }
 
 exit 0
