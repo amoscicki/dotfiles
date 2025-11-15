@@ -49,7 +49,7 @@ function Show-Menu {
             Write-Host "$prefix $option" -ForegroundColor $color
         }
 
-        $key = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
+        $key = $Host.UI.RawUI.ReadKey('NoEcho,IncludeKeyDown')
 
         switch ($key.VirtualKeyCode) {
             38 { # Up arrow
@@ -229,11 +229,11 @@ function Show-BrowseAndRemove {
         $groupNames = @()
         foreach ($group in $config.groups) {
             $count = $group.packages.Count
-            $groupNames += "$($group.name) ($count packages)"
+            $groupNames += "{0} ({1} packages)" -f $group.name, $count
         }
         $groupNames += '< Back'
 
-        $groupIndex = Show-Menu -Title "Browse Packages - Select Group" -Options $groupNames
+        $groupIndex = Show-Menu -Title 'Browse Packages - Select Group' -Options $groupNames
 
         if ($groupIndex -eq -1 -or $groupIndex -eq $config.groups.Count) {
             return
@@ -334,7 +334,7 @@ while ($true) {
                 Write-Host ""
             }
             Write-Host "Press any key to continue..." -ForegroundColor Yellow
-            $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown") | Out-Null
+            $null = $Host.UI.RawUI.ReadKey('NoEcho,IncludeKeyDown')
         }
         3 { exit 0 }
         -1 { exit 0 }
