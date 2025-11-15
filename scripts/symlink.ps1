@@ -58,6 +58,7 @@ function Test-Administrator {
 function Write-Log {
     param(
         [Parameter(Mandatory = $true, Position = 0)]
+        [AllowEmptyString()]
         [string]$Message,
         [Parameter(Mandatory = $false)]
         [ValidateSet('INFO', 'WARN', 'ERROR', 'DEBUG')]
