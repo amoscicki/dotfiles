@@ -152,11 +152,17 @@ foreach ($tool in $coreTools) {
 
         $installOutput = choco install $tool.Name -y 2>&1
 
-        if ($LASTEXITCODE -ne 0) {
+        # Exit codes: 0 = success, 3010 = success but reboot required
+        if ($LASTEXITCODE -ne 0 -and $LASTEXITCODE -ne 3010) {
             throw "Chocolatey install command failed with exit code $LASTEXITCODE"
         }
 
-        Write-Log "$($tool.DisplayName) installation command completed." -Level INFO -LogFile $LogPath
+        if ($LASTEXITCODE -eq 3010) {
+            Write-Log "$($tool.DisplayName) installation completed (reboot required)." -Level WARN -LogFile $LogPath
+        }
+        else {
+            Write-Log "$($tool.DisplayName) installation command completed." -Level INFO -LogFile $LogPath
+        }
 
         # Refresh environment variables for current session
         $env:Path = [System.Environment]::GetEnvironmentVariable("Path", "Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path", "User")

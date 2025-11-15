@@ -169,6 +169,7 @@ $installResults = @{
     Success = @()
     Skipped = @()
     Failed = @()
+    RebootRequired = @()
 }
 
 # Install each package
@@ -195,11 +196,19 @@ foreach ($package in $packages) {
 
         $installOutput = choco install $package -y 2>&1
 
-        if ($LASTEXITCODE -ne 0) {
+        # Exit codes: 0 = success, 3010 = success but reboot required
+        if ($LASTEXITCODE -ne 0 -and $LASTEXITCODE -ne 3010) {
             throw "Chocolatey install command failed with exit code $LASTEXITCODE"
         }
 
-        Write-Log "$package installation completed successfully." -Level INFO -LogFile $LogPath
+        if ($LASTEXITCODE -eq 3010) {
+            Write-Log "$package installation completed successfully (reboot required)." -Level WARN -LogFile $LogPath
+            $installResults.RebootRequired += $package
+        }
+        else {
+            Write-Log "$package installation completed successfully." -Level INFO -LogFile $LogPath
+        }
+
         $installResults.Success += $package
     }
     catch {
@@ -234,6 +243,14 @@ if ($installResults.Skipped.Count -gt 0) {
 Write-Log "Failed: $($installResults.Failed.Count)" -Level INFO -LogFile $LogPath
 if ($installResults.Failed.Count -gt 0) {
     Write-Log "  - $($installResults.Failed -join ', ')" -Level ERROR -LogFile $LogPath
+}
+
+# Display reboot warning if any packages require it
+if ($installResults.RebootRequired.Count -gt 0) {
+    Write-Log "" -Level INFO -LogFile $LogPath
+    Write-Log "IMPORTANT: System reboot required for the following packages:" -Level WARN -LogFile $LogPath
+    Write-Log "  - $($installResults.RebootRequired -join ', ')" -Level WARN -LogFile $LogPath
+    Write-Log "Please restart your computer to complete the installation." -Level WARN -LogFile $LogPath
 }
 
 # Exit with code 0 even if some packages failed (resilient mode)
