@@ -198,36 +198,40 @@ if ($Interactive) {
         # Load and parse JSON configuration
         $config = Get-Content $packagesJsonPath -Raw | ConvertFrom-Json
 
-        # Show group selection menu
+        # Build flat list of all packages with group labels
         Write-Host ''
-        $selectedGroups = Show-MultiSelectMenu -Title 'Select Package Groups to Install' -Items $config.groups -Property 'name' -AllSelected $true
+        Write-Host 'Loading package list...' -ForegroundColor Cyan
+        $allPackageObjects = @()
 
-        if ($selectedGroups.Count -eq 0) {
-            Write-Log 'No groups selected. Exiting.' -Level WARN -LogFile $LogPath
+        foreach ($group in $config.groups) {
+            $groupName = $group.name
+            foreach ($pkg in $group.packages) {
+                # Format: [Group] Package - Description
+                $displayText = '[' + $groupName + '] ' + $pkg.name + ' - ' + $pkg.description
+                $allPackageObjects += [PSCustomObject]@{
+                    Display = $displayText
+                    Name = $pkg.name
+                    Group = $groupName
+                }
+            }
+        }
+
+        # Show single multi-select menu with all packages
+        Write-Host ''
+        Write-Host 'Select packages to install (Space to toggle, Enter to confirm):' -ForegroundColor Yellow
+        Write-Host 'Tip: Use Space to check/uncheck, Ctrl+A to toggle all' -ForegroundColor DarkGray
+        Write-Host ''
+
+        $selectedPackageObjs = Show-MultiSelectMenu -Title 'Select Packages to Install' -Items $allPackageObjects -Property 'Display' -AllSelected $true
+
+        if ($selectedPackageObjs.Count -eq 0) {
+            Write-Log 'No packages selected. Exiting.' -Level WARN -LogFile $LogPath
             exit 0
         }
 
-        # For each selected group, show package selection menu
-        foreach ($group in $selectedGroups) {
-            Write-Host ''
-            $groupName = $group.name
-            $groupDesc = $group.description
-
-            $menuTitle = $groupName + ' - ' + $groupDesc
-            $packageObjects = @()
-            foreach ($pkg in $group.packages) {
-                $displayText = $pkg.name + ' - ' + $pkg.description
-                $packageObjects += [PSCustomObject]@{
-                    Display = $displayText
-                    Name = $pkg.name
-                }
-            }
-
-            $selectedPackages = Show-MultiSelectMenu -Title $menuTitle -Items $packageObjects -Property 'Display' -AllSelected $true
-
-            foreach ($pkg in $selectedPackages) {
-                $packages += $pkg.Name
-            }
+        # Extract package names
+        foreach ($pkg in $selectedPackageObjs) {
+            $packages += $pkg.Name
         }
 
         Write-Host ''
