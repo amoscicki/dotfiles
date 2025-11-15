@@ -176,6 +176,16 @@ $steps = @(
         Critical = $true
     }
     @{
+        Name = "Install PowerShell Core (pwsh)"
+        Script = "install-pwsh.ps1"
+        Critical = $true
+    }
+    @{
+        Name = "Create Configuration Symlinks"
+        Script = "symlink.ps1"
+        Critical = $true
+    }
+    @{
         Name = "Install Core Development Tools (Git, Node.js, pnpm)"
         Script = "install-core-tools.ps1"
         Critical = $true
@@ -184,11 +194,6 @@ $steps = @(
         Name = "Install Extended Development Packages"
         Script = "install-tools.ps1"
         Critical = $false  # Can continue if some packages fail
-    }
-    @{
-        Name = "Create Configuration Symlinks"
-        Script = "symlink.ps1"
-        Critical = $true
     }
 )
 

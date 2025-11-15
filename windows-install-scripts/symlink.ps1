@@ -113,7 +113,12 @@ $symlinkMappings = @(
     @{
         Source = Join-Path $dotfilesRoot "powershell\Microsoft.PowerShell_profile.ps1"
         Target = $PROFILE.CurrentUserAllHosts
-        Description = "PowerShell profile with Oh My Posh and Chocolatey module"
+        Description = "PowerShell 5.1 profile (Windows PowerShell)"
+    }
+    @{
+        Source = Join-Path $dotfilesRoot "powershell\Microsoft.PowerShell_profile.ps1"
+        Target = Join-Path $HOME "Documents\PowerShell\Microsoft.PowerShell_profile.ps1"
+        Description = "PowerShell 7+ profile (pwsh)"
     }
     @{
         Source = Join-Path $dotfilesRoot "git\.gitconfig"

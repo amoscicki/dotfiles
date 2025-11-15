@@ -1,3 +1,9 @@
+# ============================================================================
+# UTF-8 Encoding Configuration (Required for PwshSpectreConsole)
+# ============================================================================
+# Enable UTF-8 for proper display of Unicode characters and emoji
+$OutputEncoding = [console]::InputEncoding = [console]::OutputEncoding = [System.Text.UTF8Encoding]::new()
+
 # PowerShell Profile - Windows 11 Development Environment
 # Location: $PROFILE.CurrentUserAllHosts (symlinked from dotfiles/powershell/)
 # See: README.md for installation instructions
