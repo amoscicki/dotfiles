@@ -1,22 +1,19 @@
 <#
 .SYNOPSIS
-    Installs development tools and packages from a curated list via Chocolatey.
+    Installs development tools and packages from packages.json via Chocolatey.
 
 .DESCRIPTION
-    Reads a package list file (default: choco-packages.txt) or uses interactive
-    mode to select packages from groups defined in packages.json. Handles comment
-    lines, empty lines, and inline comments. Performs idempotency checks for each
-    package and continues with remaining packages if some fail.
+    Installs packages from groups defined in packages.json. In interactive mode,
+    allows selection of specific package groups and packages. In non-interactive
+    mode, installs all packages from all groups. Performs idempotency checks for
+    each package and continues with remaining packages if some fail.
 
 .PARAMETER Interactive
-    Enable interactive mode to select package groups and specific packages
+    Enable interactive mode to select package groups and specific packages.
+    Without this flag, all packages from packages.json will be installed.
 
 .PARAMETER LogPath
     Path to the log file. Defaults to logs/install-tools-YYYYMMDD-HHmmss.log
-
-.PARAMETER PackageListPath
-    Path to the package list file. Defaults to choco-packages.txt
-    Ignored if -Interactive is specified.
 
 .OUTPUTS
     Exit code 0 even if some packages fail (resilient mode), 1 on fatal error.
@@ -27,25 +24,18 @@
 
 .EXAMPLE
     PS> .\install-tools.ps1
-    Installs all packages from choco-packages.txt
-
-.EXAMPLE
-    PS> .\install-tools.ps1 -PackageListPath "custom-packages.txt"
-    Installs packages from a custom list file.
+    Installs all packages from packages.json automatically
 
 .NOTES
     Part of User Story 2 (P2): Install Extended Development Packages
-    Requires: Administrator privileges, Chocolatey installed
+    Requires: Administrator privileges, Chocolatey installed, PoshSpectreConsole module
     See: specs/001-windows-setup-automation/spec.md FR-004, data-model.md §1
 #>
 [CmdletBinding(SupportsShouldProcess)]
 param(
     [switch]$Interactive,
 
-    [string]$LogPath,
-
-    [Parameter(Mandatory = $false)]
-    [string]$PackageListPath = "choco-packages.txt"
+    [string]$LogPath
 )
 
 # Set error action preference
@@ -53,6 +43,19 @@ $ErrorActionPreference = 'Stop'
 
 # Resolve script directory
 $scriptRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
+
+#region Spectre Console Setup
+
+# Ensure PoshSpectreConsole module is installed
+if (-not (Get-Module -ListAvailable -Name PoshSpectreConsole)) {
+    Write-Host 'Installing PoshSpectreConsole module...' -ForegroundColor Yellow
+    Install-Module -Name PoshSpectreConsole -Scope CurrentUser -Force -SkipPublisherCheck
+}
+
+# Import module
+Import-Module PoshSpectreConsole -Force
+
+#endregion
 
 #region Utility Functions
 
@@ -91,7 +94,7 @@ function Write-Log {
     }
 }
 
-# Show-MultiSelectMenu: Display a checkbox-style menu for selecting items
+# Show-MultiSelectMenu: Display a checkbox-style menu for selecting items using Spectre Console
 function Show-MultiSelectMenu {
     param(
         [Parameter(Mandatory = $true)]
@@ -107,73 +110,35 @@ function Show-MultiSelectMenu {
         [bool]$AllSelected = $true
     )
 
-    $selected = @{}
-    for ($i = 0; $i -lt $Items.Count; $i++) {
-        $selected[$i] = $AllSelected
+    # Prepare choices for Spectre
+    $choices = @()
+    if ($Property) {
+        foreach ($item in $Items) {
+            $choices += $item.$Property
+        }
+    } else {
+        $choices = $Items
     }
 
-    $currentIndex = 0
+    # Show multi-selection prompt with Spectre
+    $selectedChoices = Read-SpectreMultiSelection -Title $Title -Choices $choices -PageSize 15
 
-    while ($true) {
-        Clear-Host
-        $titleDisplay = '=== ' + $Title + ' ==='
-        Write-Host $titleDisplay -ForegroundColor Cyan
-        Write-Host ''
-        Write-Host 'Use UP/DOWN arrows to navigate, SPACE to toggle, ENTER to confirm, A to select all, N to select none' -ForegroundColor Yellow
-        Write-Host ''
-
-        for ($i = 0; $i -lt $Items.Count; $i++) {
-            $item = $Items[$i]
-            $displayText = if ($Property) { $item.$Property } else { $item }
-            $checkbox = if ($selected[$i]) { "[X]" } else { "[ ]" }
-            $prefix = if ($i -eq $currentIndex) { ">" } else { " " }
-
-            $color = if ($i -eq $currentIndex) { "Green" } else { "White" }
-            $lineDisplay = $prefix + ' ' + $checkbox + ' ' + $displayText
-            Write-Host $lineDisplay -ForegroundColor $color
-        }
-
-        Write-Host ''
-        $selectedCount = ($selected.Values | Where-Object { $_ }).Count
-        $selectionMsg = 'Selected: ' + $selectedCount + ' / ' + $Items.Count
-        Write-Host $selectionMsg -ForegroundColor Cyan
-
-        $key = $Host.UI.RawUI.ReadKey('NoEcho,IncludeKeyDown')
-
-        switch ($key.VirtualKeyCode) {
-            38 { # Up arrow
-                $currentIndex = if ($currentIndex -gt 0) { $currentIndex - 1 } else { $Items.Count - 1 }
-            }
-            40 { # Down arrow
-                $currentIndex = if ($currentIndex -lt ($Items.Count - 1)) { $currentIndex + 1 } else { 0 }
-            }
-            32 { # Spacebar
-                $selected[$currentIndex] = -not $selected[$currentIndex]
-            }
-            65 { # 'A' key - select all
-                for ($i = 0; $i -lt $Items.Count; $i++) {
-                    $selected[$i] = $true
+    # Map selected choices back to original items
+    $selectedItems = @()
+    if ($Property) {
+        foreach ($choice in $selectedChoices) {
+            foreach ($item in $Items) {
+                if ($item.$Property -eq $choice) {
+                    $selectedItems += $item
+                    break
                 }
-            }
-            78 { # 'N' key - select none
-                for ($i = 0; $i -lt $Items.Count; $i++) {
-                    $selected[$i] = $false
-                }
-            }
-            13 { # Enter
-                $selectedItems = @()
-                for ($i = 0; $i -lt $Items.Count; $i++) {
-                    if ($selected[$i]) {
-                        $selectedItems += $Items[$i]
-                    }
-                }
-                return $selectedItems
-            }
-            27 { # Escape
-                return @()
             }
         }
+    } else {
+        $selectedItems = $selectedChoices
     }
+
+    return $selectedItems
 }
 
 #endregion
@@ -272,48 +237,33 @@ if ($Interactive) {
     }
 }
 else {
-    # File-based mode (original behavior)
-    # Resolve package list path (support relative paths)
-    if (-not [System.IO.Path]::IsPathRooted($PackageListPath)) {
-        $PackageListPath = Join-Path $scriptRoot $PackageListPath
-    }
+    # Automatic mode - install all packages from packages.json
+    Write-Log 'Automatic mode - installing all packages from packages.json' -Level INFO -LogFile $LogPath
 
-    # Check package list file exists
-    if (-not (Test-Path $PackageListPath)) {
-        $notFoundMsg = 'ERROR: Package list file not found: ' + $PackageListPath
+    # Check if packages.json exists
+    $packagesJsonPath = Join-Path $scriptRoot 'packages.json'
+    if (-not (Test-Path $packagesJsonPath)) {
+        $notFoundMsg = 'ERROR: packages.json not found at: ' + $packagesJsonPath
         Write-Log $notFoundMsg -Level ERROR -LogFile $LogPath
         exit 3
     }
 
-    $fileMsg = 'Package list file: ' + $PackageListPath
-    Write-Log $fileMsg -Level INFO -LogFile $LogPath
-
-    # Read and parse package list (data-model.md §1)
     try {
-        $allLines = Get-Content $PackageListPath -Encoding UTF8
-        $packages = $allLines |
-            Where-Object {
-                # Filter out empty lines and comment lines
-                $line = $_.Trim()
-                $line -ne '' -and -not $line.StartsWith('#')
-            } |
-            ForEach-Object {
-                # Remove inline comments and trim whitespace
-                $line = $_.Trim()
-                $commentIndex = $line.IndexOf('#')
-                if ($commentIndex -ge 0) {
-                    $line = $line.Substring(0, $commentIndex).Trim()
-                }
-                $line
-            } |
-            Where-Object { $_ -ne '' } |
-            Select-Object -Unique  # Remove duplicates
+        # Load and parse JSON configuration
+        $config = Get-Content $packagesJsonPath -Raw | ConvertFrom-Json
 
-        $parsedMsg = 'Parsed ' + $packages.Count + ' unique packages from list'
-        Write-Log $parsedMsg -Level INFO -LogFile $LogPath
+        # Collect all packages from all groups
+        foreach ($group in $config.groups) {
+            foreach ($pkg in $group.packages) {
+                $packages += $pkg.name
+            }
+        }
+
+        $pkgCountMsg = 'Found ' + $packages.Count + ' packages across all groups'
+        Write-Log $pkgCountMsg -Level INFO -LogFile $LogPath
     }
     catch {
-        $errorMsg = 'ERROR: Failed to read package list: ' + $_.Exception.Message
+        $errorMsg = 'ERROR: Failed to load packages.json: ' + $_.Exception.Message
         Write-Log $errorMsg -Level ERROR -LogFile $LogPath
         exit 3
     }

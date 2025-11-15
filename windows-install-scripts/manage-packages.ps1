@@ -22,6 +22,19 @@ $ErrorActionPreference = 'Stop'
 $scriptRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
 $packagesJsonPath = Join-Path $scriptRoot "packages.json"
 
+#region Spectre Console Setup
+
+# Ensure PoshSpectreConsole module is installed
+if (-not (Get-Module -ListAvailable -Name PoshSpectreConsole)) {
+    Write-Host 'Installing PoshSpectreConsole module...' -ForegroundColor Yellow
+    Install-Module -Name PoshSpectreConsole -Scope CurrentUser -Force -SkipPublisherCheck
+}
+
+# Import module
+Import-Module PoshSpectreConsole -Force
+
+#endregion
+
 #region Utility Functions
 
 function Show-Menu {
@@ -33,41 +46,17 @@ function Show-Menu {
         [array]$Options
     )
 
-    $currentIndex = 0
+    # Show selection prompt with Spectre
+    $selected = Read-SpectreSelection -Title $Title -Choices $Options -PageSize 15
 
-    while ($true) {
-        Clear-Host
-        $titleDisplay = '=== ' + $Title + ' ==='
-        Write-Host $titleDisplay -ForegroundColor Cyan
-        Write-Host ''
-        Write-Host 'Use UP/DOWN arrows to navigate, ENTER to select, ESC to go back' -ForegroundColor Yellow
-        Write-Host ''
-
-        for ($i = 0; $i -lt $Options.Count; $i++) {
-            $option = $Options[$i]
-            $prefix = if ($i -eq $currentIndex) { '>' } else { ' ' }
-            $color = if ($i -eq $currentIndex) { 'Green' } else { 'White' }
-            $lineDisplay = $prefix + ' ' + $option
-            Write-Host $lineDisplay -ForegroundColor $color
-        }
-
-        $key = $Host.UI.RawUI.ReadKey('NoEcho,IncludeKeyDown')
-
-        switch ($key.VirtualKeyCode) {
-            38 { # Up arrow
-                $currentIndex = if ($currentIndex -gt 0) { $currentIndex - 1 } else { $Options.Count - 1 }
-            }
-            40 { # Down arrow
-                $currentIndex = if ($currentIndex -lt ($Options.Count - 1)) { $currentIndex + 1 } else { 0 }
-            }
-            13 { # Enter
-                return $currentIndex
-            }
-            27 { # Escape
-                return -1
-            }
+    # Find index of selected option
+    for ($i = 0; $i -lt $Options.Count; $i++) {
+        if ($Options[$i] -eq $selected) {
+            return $i
         }
     }
+
+    return -1
 }
 
 function Search-ChocoPackages {

@@ -8,6 +8,10 @@
     recovery, and displays post-installation instructions. Supports idempotent
     execution for safe resumption after interruptions.
 
+.PARAMETER Interactive
+    Enable interactive mode for package selection. Allows choosing specific
+    package groups and packages to install instead of installing everything.
+
 .PARAMETER Force
     Skip confirmations in child scripts (passed to symlink.ps1).
 
@@ -23,7 +27,11 @@
 
 .EXAMPLE
     PS> .\install.ps1
-    Interactive installation with confirmation prompts.
+    Automatic installation of all packages from packages.json
+
+.EXAMPLE
+    PS> .\install.ps1 -Interactive
+    Interactive mode - select which package groups and packages to install
 
 .EXAMPLE
     PS> .\install.ps1 -Unattended
@@ -45,6 +53,7 @@
 #>
 [CmdletBinding(SupportsShouldProcess)]
 param(
+    [switch]$Interactive,
     [switch]$Force,
     [switch]$Unattended,
     [string]$LogPath
@@ -237,6 +246,14 @@ foreach ($step in $steps) {
         if ($Unattended -or $Force) {
             $scriptParams['Force'] = $true
             Write-Log "Symlink script will run with -Force (no confirmations)" -Level INFO -LogFile $LogPath
+        }
+    }
+
+    # Special handling for install-tools.ps1: pass -Interactive if specified
+    if ($step.Script -eq 'install-tools.ps1') {
+        if ($Interactive) {
+            $scriptParams['Interactive'] = $true
+            Write-Log "Tools installation will run in interactive mode" -Level INFO -LogFile $LogPath
         }
     }
 
