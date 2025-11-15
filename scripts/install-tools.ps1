@@ -3,20 +3,27 @@
     Installs development tools and packages from a curated list via Chocolatey.
 
 .DESCRIPTION
-    Reads a package list file (default: choco-packages.txt) and installs each
-    package via Chocolatey. Handles comment lines, empty lines, and inline
-    comments. Performs idempotency checks for each package and continues with
-    remaining packages if some fail. Provides a summary report at completion.
+    Reads a package list file (default: choco-packages.txt) or uses interactive
+    mode to select packages from groups defined in packages.json. Handles comment
+    lines, empty lines, and inline comments. Performs idempotency checks for each
+    package and continues with remaining packages if some fail.
+
+.PARAMETER Interactive
+    Enable interactive mode to select package groups and specific packages
 
 .PARAMETER LogPath
     Path to the log file. Defaults to logs/install-tools-YYYYMMDD-HHmmss.log
 
 .PARAMETER PackageListPath
     Path to the package list file. Defaults to scripts/choco-packages.txt
-    Supports relative paths (resolved from script directory).
+    Ignored if -Interactive is specified.
 
 .OUTPUTS
     Exit code 0 even if some packages fail (resilient mode), 1 on fatal error.
+
+.EXAMPLE
+    PS> .\install-tools.ps1 -Interactive
+    Shows interactive menu to select package groups and packages
 
 .EXAMPLE
     PS> .\install-tools.ps1
@@ -26,10 +33,6 @@
     PS> .\install-tools.ps1 -PackageListPath "custom-packages.txt"
     Installs packages from a custom list file.
 
-.EXAMPLE
-    PS> .\install-tools.ps1 -WhatIf
-    Previews what packages would be installed.
-
 .NOTES
     Part of User Story 2 (P2): Install Extended Development Packages
     Requires: Administrator privileges, Chocolatey installed
@@ -37,6 +40,8 @@
 #>
 [CmdletBinding(SupportsShouldProcess)]
 param(
+    [switch]$Interactive,
+
     [string]$LogPath,
 
     [Parameter(Mandatory = $false)]
@@ -85,6 +90,88 @@ function Write-Log {
     }
 }
 
+# Show-MultiSelectMenu: Display a checkbox-style menu for selecting items
+function Show-MultiSelectMenu {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Title,
+
+        [Parameter(Mandatory = $true)]
+        [array]$Items,
+
+        [Parameter(Mandatory = $false)]
+        [string]$Property = $null,
+
+        [Parameter(Mandatory = $false)]
+        [bool]$AllSelected = $true
+    )
+
+    $selected = @{}
+    for ($i = 0; $i < $Items.Count; $i++) {
+        $selected[$i] = $AllSelected
+    }
+
+    $currentIndex = 0
+
+    while ($true) {
+        Clear-Host
+        Write-Host "=== $Title ===" -ForegroundColor Cyan
+        Write-Host ""
+        Write-Host "Use ↑/↓ arrows to navigate, SPACE to toggle, ENTER to confirm, A to select all, N to select none" -ForegroundColor Yellow
+        Write-Host ""
+
+        for ($i = 0; $i < $Items.Count; $i++) {
+            $item = $Items[$i]
+            $displayText = if ($Property) { $item.$Property } else { $item }
+            $checkbox = if ($selected[$i]) { "[X]" } else { "[ ]" }
+            $prefix = if ($i -eq $currentIndex) { ">" } else { " " }
+
+            $color = if ($i -eq $currentIndex) { "Green" } else { "White" }
+            Write-Host "$prefix $checkbox $displayText" -ForegroundColor $color
+        }
+
+        Write-Host ""
+        $selectedCount = ($selected.Values | Where-Object { $_ }).Count
+        Write-Host "Selected: $selectedCount / $($Items.Count)" -ForegroundColor Cyan
+
+        $key = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
+
+        switch ($key.VirtualKeyCode) {
+            38 { # Up arrow
+                $currentIndex = if ($currentIndex -gt 0) { $currentIndex - 1 } else { $Items.Count - 1 }
+            }
+            40 { # Down arrow
+                $currentIndex = if ($currentIndex -lt ($Items.Count - 1)) { $currentIndex + 1 } else { 0 }
+            }
+            32 { # Spacebar
+                $selected[$currentIndex] = -not $selected[$currentIndex]
+            }
+            65 { # 'A' key - select all
+                for ($i = 0; $i < $Items.Count; $i++) {
+                    $selected[$i] = $true
+                }
+            }
+            78 { # 'N' key - select none
+                for ($i = 0; $i < $Items.Count; $i++) {
+                    $selected[$i] = $false
+                }
+            }
+            13 { # Enter
+                $selectedItems = @()
+                for ($i = 0; $i < $Items.Count; $i++) {
+                    if ($selected[$i]) {
+                        $selectedItems += $Items[$i]
+                    }
+                }
+                return $selectedItems
+            }
+            27 { # Escape
+                return @()
+            }
+        }
+    }
+}
+
 #endregion
 
 # Setup logging
@@ -118,49 +205,110 @@ if (-not $chocoCmd) {
 
 Write-Log "Chocolatey prerequisite check: PASS" -Level INFO -LogFile $LogPath
 
-# Resolve package list path (support relative paths)
-if (-not [System.IO.Path]::IsPathRooted($PackageListPath)) {
-    $PackageListPath = Join-Path $scriptRoot $PackageListPath
-}
+# Load packages based on mode (Interactive or File-based)
+$packages = @()
 
-# Check package list file exists
-if (-not (Test-Path $PackageListPath)) {
-    Write-Log "ERROR: Package list file not found: $PackageListPath" -Level ERROR -LogFile $LogPath
-    exit 3
-}
+if ($Interactive) {
+    Write-Log "Interactive mode enabled" -Level INFO -LogFile $LogPath
 
-Write-Log "Package list file: $PackageListPath" -Level INFO -LogFile $LogPath
+    # Check if packages.json exists
+    $packagesJsonPath = Join-Path $scriptRoot "packages.json"
+    if (-not (Test-Path $packagesJsonPath)) {
+        Write-Log "ERROR: packages.json not found at: $packagesJsonPath" -Level ERROR -LogFile $LogPath
+        Write-Log "Interactive mode requires packages.json configuration file" -Level ERROR -LogFile $LogPath
+        exit 3
+    }
 
-# Read and parse package list (data-model.md §1)
-try {
-    $allLines = Get-Content $PackageListPath -Encoding UTF8
-    $packages = $allLines |
-        Where-Object {
-            # Filter out empty lines and comment lines
-            $line = $_.Trim()
-            $line -ne '' -and -not $line.StartsWith('#')
-        } |
-        ForEach-Object {
-            # Remove inline comments and trim whitespace
-            $line = $_.Trim()
-            $commentIndex = $line.IndexOf('#')
-            if ($commentIndex -ge 0) {
-                $line = $line.Substring(0, $commentIndex).Trim()
+    try {
+        # Load and parse JSON configuration
+        $config = Get-Content $packagesJsonPath -Raw | ConvertFrom-Json
+
+        # Show group selection menu
+        Write-Host ""
+        $selectedGroups = Show-MultiSelectMenu -Title "Select Package Groups to Install" -Items $config.groups -Property "name"
+
+        if ($selectedGroups.Count -eq 0) {
+            Write-Log "No groups selected. Exiting." -Level WARN -LogFile $LogPath
+            exit 0
+        }
+
+        # For each selected group, show package selection menu
+        foreach ($group in $selectedGroups) {
+            Write-Host ""
+            $groupName = $group.name
+            $groupDesc = $group.description
+
+            $menuTitle = "$groupName - $groupDesc"
+            $packageObjects = @()
+            foreach ($pkg in $group.packages) {
+                $packageObjects += [PSCustomObject]@{
+                    Display = "$($pkg.name) - $($pkg.description)"
+                    Name = $pkg.name
+                }
             }
-            $line
-        } |
-        Where-Object { $_ -ne '' } |
-        Select-Object -Unique  # Remove duplicates
 
-    Write-Log "Parsed $($packages.Count) unique packages from list" -Level INFO -LogFile $LogPath
+            $selectedPackages = Show-MultiSelectMenu -Title $menuTitle -Items $packageObjects -Property "Display"
+
+            foreach ($pkg in $selectedPackages) {
+                $packages += $pkg.Name
+            }
+        }
+
+        Write-Host ""
+        Write-Log "Selected $($packages.Count) packages for installation" -Level INFO -LogFile $LogPath
+    }
+    catch {
+        Write-Log "ERROR: Failed to load packages.json: $($_.Exception.Message)" -Level ERROR -LogFile $LogPath
+        exit 3
+    }
 }
-catch {
-    Write-Log "ERROR: Failed to read package list: $($_.Exception.Message)" -Level ERROR -LogFile $LogPath
-    exit 3
+else {
+    # File-based mode (original behavior)
+    # Resolve package list path (support relative paths)
+    if (-not [System.IO.Path]::IsPathRooted($PackageListPath)) {
+        $PackageListPath = Join-Path $scriptRoot $PackageListPath
+    }
+
+    # Check package list file exists
+    if (-not (Test-Path $PackageListPath)) {
+        Write-Log "ERROR: Package list file not found: $PackageListPath" -Level ERROR -LogFile $LogPath
+        exit 3
+    }
+
+    Write-Log "Package list file: $PackageListPath" -Level INFO -LogFile $LogPath
+
+    # Read and parse package list (data-model.md §1)
+    try {
+        $allLines = Get-Content $PackageListPath -Encoding UTF8
+        $packages = $allLines |
+            Where-Object {
+                # Filter out empty lines and comment lines
+                $line = $_.Trim()
+                $line -ne '' -and -not $line.StartsWith('#')
+            } |
+            ForEach-Object {
+                # Remove inline comments and trim whitespace
+                $line = $_.Trim()
+                $commentIndex = $line.IndexOf('#')
+                if ($commentIndex -ge 0) {
+                    $line = $line.Substring(0, $commentIndex).Trim()
+                }
+                $line
+            } |
+            Where-Object { $_ -ne '' } |
+            Select-Object -Unique  # Remove duplicates
+
+        Write-Log "Parsed $($packages.Count) unique packages from list" -Level INFO -LogFile $LogPath
+    }
+    catch {
+        Write-Log "ERROR: Failed to read package list: $($_.Exception.Message)" -Level ERROR -LogFile $LogPath
+        exit 3
+    }
 }
 
+# Check if any packages were selected
 if ($packages.Count -eq 0) {
-    Write-Log "WARNING: No packages found in list file. Nothing to install." -Level WARN -LogFile $LogPath
+    Write-Log "WARNING: No packages selected. Nothing to install." -Level WARN -LogFile $LogPath
     exit 0
 }
 
