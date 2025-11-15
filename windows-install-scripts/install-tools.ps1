@@ -41,6 +41,9 @@ param(
 # Set error action preference
 $ErrorActionPreference = 'Stop'
 
+# Set UTF-8 encoding for proper Spectre Console display
+$OutputEncoding = [console]::InputEncoding = [console]::OutputEncoding = [System.Text.UTF8Encoding]::new()
+
 # Resolve script directory
 $scriptRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
 
