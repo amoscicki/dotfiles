@@ -147,7 +147,7 @@ function Show-SearchAndAdd {
         }
         $packageOptions += '< Back to search'
 
-        $menuTitle = 'Search Results for ' + "'" + $searchTerm + "'" + ' - Select package to add'
+        $menuTitle = 'Search Results for ' + $searchTerm + ' - Select package to add'
         $selected = Show-Menu -Title $menuTitle -Options $packageOptions
 
         if ($selected -eq -1 -or $selected -eq $packages.Count) {
