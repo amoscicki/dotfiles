@@ -281,8 +281,9 @@ foreach ($step in $steps) {
             $results.Success += $step.Name
 
             # Special handling after install-pwsh.ps1: switch to PowerShell 7 if we're in PS 5.1
+            # Skip if we're already running from profile auto-launch (prevents infinite loop)
             if ($step.Script -eq 'install-pwsh.ps1') {
-                if ($PSVersionTable.PSVersion.Major -eq 5) {
+                if ($PSVersionTable.PSVersion.Major -eq 5 -and -not $env:PWSH_AUTO_LAUNCHED) {
                     # Refresh PATH to make pwsh visible
                     Write-Log "Refreshing PATH environment variable..." -Level DEBUG -LogFile $LogPath
                     $machinePath = [System.Environment]::GetEnvironmentVariable('Path', 'Machine')

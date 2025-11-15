@@ -108,17 +108,46 @@ if (-not (Test-Administrator)) {
 
 Write-Log "Administrator check: PASS" -Level INFO -LogFile $LogPath
 
+# Create C:\.config directory and copy PowerShell profiles
+Write-Log "Setting up PowerShell profiles in C:\.config..." -Level INFO -LogFile $LogPath
+
+$configDir = "C:\.config"
+if (-not (Test-Path $configDir)) {
+    New-Item -Path $configDir -ItemType Directory -Force | Out-Null
+    Write-Log "Created directory: $configDir" -Level INFO -LogFile $LogPath
+}
+
+# Copy PowerShell profiles to C:\.config
+$ps5ProfileSource = Join-Path $dotfilesRoot "powershell\Microsoft.PowerShell_profile.ps1"
+$ps5ProfileTarget = Join-Path $configDir "powershell_profile.ps1"
+$ps7ProfileSource = Join-Path $dotfilesRoot "powershell\pwsh_profile.ps1"
+$ps7ProfileTarget = Join-Path $configDir "pwsh_profile.ps1"
+
+if (Test-Path $ps5ProfileSource) {
+    Copy-Item -Path $ps5ProfileSource -Destination $ps5ProfileTarget -Force
+    Write-Log "Copied PS 5.1 profile to: $ps5ProfileTarget" -Level INFO -LogFile $LogPath
+} else {
+    Write-Log "WARNING: PS 5.1 profile source not found: $ps5ProfileSource" -Level WARN -LogFile $LogPath
+}
+
+if (Test-Path $ps7ProfileSource) {
+    Copy-Item -Path $ps7ProfileSource -Destination $ps7ProfileTarget -Force
+    Write-Log "Copied PS 7 profile to: $ps7ProfileTarget" -Level INFO -LogFile $LogPath
+} else {
+    Write-Log "WARNING: PS 7 profile source not found: $ps7ProfileSource" -Level WARN -LogFile $LogPath
+}
+
 # Define symlink mappings (data-model.md §4)
 $symlinkMappings = @(
     @{
-        Source = Join-Path $dotfilesRoot "powershell\Microsoft.PowerShell_profile.ps1"
+        Source = "C:\.config\powershell_profile.ps1"
         Target = $PROFILE.CurrentUserAllHosts
         Description = "PowerShell 5.1 profile (Windows PowerShell)"
     }
     @{
-        Source = Join-Path $dotfilesRoot "powershell\Microsoft.PowerShell_profile.ps1"
+        Source = "C:\.config\pwsh_profile.ps1"
         Target = Join-Path $HOME "Documents\PowerShell\Microsoft.PowerShell_profile.ps1"
-        Description = "PowerShell 7+ profile (pwsh)"
+        Description = "PowerShell 7+ main profile (pwsh)"
     }
     @{
         Source = Join-Path $dotfilesRoot "git\.gitconfig"
@@ -274,6 +303,8 @@ foreach ($mapping in $symlinkMappings) {
         $results.Failed += $mapping.Description
     }
 }
+
+# No extra copying needed - symlink handles it
 
 # Summary
 Write-Log "=== Symlink Creation Summary ===" -Level INFO -LogFile $LogPath
