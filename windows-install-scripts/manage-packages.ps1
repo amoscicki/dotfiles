@@ -37,16 +37,18 @@ function Show-Menu {
 
     while ($true) {
         Clear-Host
-        Write-Host "=== $Title ===" -ForegroundColor Cyan
-        Write-Host ""
-        Write-Host "Use ↑/↓ arrows to navigate, ENTER to select, ESC to go back" -ForegroundColor Yellow
-        Write-Host ""
+        $titleDisplay = '=== ' + $Title + ' ==='
+        Write-Host $titleDisplay -ForegroundColor Cyan
+        Write-Host ''
+        Write-Host 'Use ↑/↓ arrows to navigate, ENTER to select, ESC to go back' -ForegroundColor Yellow
+        Write-Host ''
 
         for ($i = 0; $i < $Options.Count; $i++) {
             $option = $Options[$i]
-            $prefix = if ($i -eq $currentIndex) { ">" } else { " " }
-            $color = if ($i -eq $currentIndex) { "Green" } else { "White" }
-            Write-Host "$prefix $option" -ForegroundColor $color
+            $prefix = if ($i -eq $currentIndex) { '>' } else { ' ' }
+            $color = if ($i -eq $currentIndex) { 'Green' } else { 'White' }
+            $lineDisplay = $prefix + ' ' + $option
+            Write-Host $lineDisplay -ForegroundColor $color
         }
 
         $key = $Host.UI.RawUI.ReadKey('NoEcho,IncludeKeyDown')
@@ -71,7 +73,8 @@ function Show-Menu {
 function Search-ChocoPackages {
     param([string]$SearchTerm)
 
-    Write-Host "Searching Chocolatey for '$SearchTerm'..." -ForegroundColor Yellow
+    $searchMsg = "Searching Chocolatey for '" + $SearchTerm + "'..."
+    Write-Host $searchMsg -ForegroundColor Yellow
 
     try {
         $results = choco search $SearchTerm --limit-output 2>&1 | Where-Object { $_ -match '\|' }
@@ -89,7 +92,8 @@ function Search-ChocoPackages {
         return $packages
     }
     catch {
-        Write-Host "Error searching packages: $_" -ForegroundColor Red
+        $errorMsg = 'Error searching packages: ' + $_
+        Write-Host $errorMsg -ForegroundColor Red
         return @()
     }
 }
@@ -111,15 +115,15 @@ function Save-Config {
 
     $json = $Config | ConvertTo-Json -Depth 10
     Set-Content -Path $packagesJsonPath -Value $json -Encoding UTF8
-    Write-Host "Configuration saved!" -ForegroundColor Green
+    Write-Host 'Configuration saved!' -ForegroundColor Green
     Start-Sleep -Seconds 1
 }
 
 function Show-SearchAndAdd {
     while ($true) {
         Clear-Host
-        Write-Host "=== Search and Add Packages ===" -ForegroundColor Cyan
-        Write-Host ""
+        Write-Host '=== Search and Add Packages ===' -ForegroundColor Cyan
+        Write-Host ''
         Write-Host "Enter search term (or 'back' to return): " -NoNewline -ForegroundColor Yellow
         $searchTerm = Read-Host
 
@@ -130,7 +134,7 @@ function Show-SearchAndAdd {
         $packages = Search-ChocoPackages -SearchTerm $searchTerm
 
         if ($packages.Count -eq 0) {
-            Write-Host "No packages found" -ForegroundColor Yellow
+            Write-Host 'No packages found' -ForegroundColor Yellow
             Start-Sleep -Seconds 2
             continue
         }
@@ -164,10 +168,10 @@ function Show-SearchAndAdd {
         $config = Load-Config
 
         if ($config.groups.Count -eq 0) {
-            Write-Host "No groups found. Creating default group..." -ForegroundColor Yellow
+            Write-Host 'No groups found. Creating default group...' -ForegroundColor Yellow
             $config.groups = @([PSCustomObject]@{
-                name = "Custom Packages"
-                description = "Manually added packages"
+                name = 'Custom Packages'
+                description = 'Manually added packages'
                 packages = @()
             })
         }
@@ -178,7 +182,7 @@ function Show-SearchAndAdd {
         }
         $groupNames += '< Create new group'
 
-        $groupIndex = Show-Menu -Title "Select group to add package to" -Options $groupNames
+        $groupIndex = Show-Menu -Title 'Select group to add package to' -Options $groupNames
 
         if ($groupIndex -eq -1) {
             continue
@@ -187,11 +191,11 @@ function Show-SearchAndAdd {
         if ($groupIndex -eq $config.groups.Count) {
             # Create new group
             Clear-Host
-            Write-Host "Create New Group" -ForegroundColor Cyan
-            Write-Host ""
-            Write-Host "Group name: " -NoNewline -ForegroundColor Yellow
+            Write-Host 'Create New Group' -ForegroundColor Cyan
+            Write-Host ''
+            Write-Host 'Group name: ' -NoNewline -ForegroundColor Yellow
             $newGroupName = Read-Host
-            Write-Host "Group description: " -NoNewline -ForegroundColor Yellow
+            Write-Host 'Group description: ' -NoNewline -ForegroundColor Yellow
             $newGroupDesc = Read-Host
 
             $newGroup = [PSCustomObject]@{
@@ -223,7 +227,7 @@ function Show-BrowseAndRemove {
 
     if ($config.groups.Count -eq 0) {
         Clear-Host
-        Write-Host "No groups found in configuration" -ForegroundColor Yellow
+        Write-Host 'No groups found in configuration' -ForegroundColor Yellow
         Start-Sleep -Seconds 2
         return
     }
@@ -277,7 +281,7 @@ function Show-BrowseAndRemove {
                 if ($confirm -eq 'y' -or $confirm -eq 'Y') {
                     $config.groups = @($config.groups | Where-Object { $_.name -ne $selectedGroup.name })
                     Save-Config -Config $config
-                    Write-Host "Group deleted!" -ForegroundColor Green
+                    Write-Host 'Group deleted!' -ForegroundColor Green
                     Start-Sleep -Seconds 1
                     break
                 }
@@ -307,7 +311,7 @@ function Show-BrowseAndRemove {
                 }
 
                 Save-Config -Config $config
-                Write-Host "Package removed!" -ForegroundColor Green
+                Write-Host 'Package removed!' -ForegroundColor Green
                 Start-Sleep -Seconds 1
             }
         }
@@ -319,13 +323,13 @@ function Show-BrowseAndRemove {
 # Main menu
 while ($true) {
     $options = @(
-        "1. Search and Add Packages"
-        "2. Browse and Remove Packages"
-        "3. View Current Configuration"
-        "4. Exit"
+        '1. Search and Add Packages'
+        '2. Browse and Remove Packages'
+        '3. View Current Configuration'
+        '4. Exit'
     )
 
-    $choice = Show-Menu -Title "Package Manager" -Options $options
+    $choice = Show-Menu -Title 'Package Manager' -Options $options
 
     switch ($choice) {
         0 { Show-SearchAndAdd }
