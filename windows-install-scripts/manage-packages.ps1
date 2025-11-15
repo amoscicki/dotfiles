@@ -43,7 +43,7 @@ function Show-Menu {
         Write-Host 'Use UP/DOWN arrows to navigate, ENTER to select, ESC to go back' -ForegroundColor Yellow
         Write-Host ''
 
-        for ($i = 0; $i < $Options.Count; $i++) {
+        for ($i = 0; $i -lt $Options.Count; $i++) {
             $option = $Options[$i]
             $prefix = if ($i -eq $currentIndex) { '>' } else { ' ' }
             $color = if ($i -eq $currentIndex) { 'Green' } else { 'White' }
@@ -303,7 +303,7 @@ function Show-BrowseAndRemove {
                 $selectedGroup.packages = @($selectedGroup.packages | Where-Object { $_.name -ne $packageToRemove.name })
 
                 # Update the group in config
-                for ($i = 0; $i < $config.groups.Count; $i++) {
+                for ($i = 0; $i -lt $config.groups.Count; $i++) {
                     if ($config.groups[$i].name -eq $selectedGroup.name) {
                         $config.groups[$i] = $selectedGroup
                         break
