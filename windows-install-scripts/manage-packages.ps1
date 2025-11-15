@@ -274,7 +274,7 @@ function Show-BrowseAndRemove {
             if ($pkgIndex -eq $packageNames.Count - 2) {
                 # Delete group
                 Clear-Host
-                $deleteMsg = "Delete group '" + $selectedGroup.name + "'? (y/N): "
+                $deleteMsg = 'Delete group ' + $selectedGroup.name + '? (y/N): '
                 Write-Host $deleteMsg -NoNewline -ForegroundColor Yellow
                 $confirm = Read-Host
 
@@ -295,7 +295,7 @@ function Show-BrowseAndRemove {
             # Remove package
             $packageToRemove = $selectedGroup.packages[$pkgIndex]
             Clear-Host
-            $removeMsg = "Remove '" + $packageToRemove.name + "' from " + $selectedGroup.name + "? (y/N): "
+            $removeMsg = 'Remove ' + $packageToRemove.name + ' from ' + $selectedGroup.name + '? (y/N): '
             Write-Host $removeMsg -NoNewline -ForegroundColor Yellow
             $confirm = Read-Host
 
