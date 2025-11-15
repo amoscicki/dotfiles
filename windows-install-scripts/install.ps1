@@ -279,6 +279,40 @@ foreach ($step in $steps) {
         if ($exitCode -eq 0) {
             Write-Log "Step completed successfully (exit code: $exitCode)" -Level INFO -LogFile $LogPath
             $results.Success += $step.Name
+
+            # Special handling after install-pwsh.ps1: switch to PowerShell 7 if we're in PS 5.1
+            if ($step.Script -eq 'install-pwsh.ps1') {
+                if ($PSVersionTable.PSVersion.Major -eq 5) {
+                    $pwshCmd = Get-Command pwsh -ErrorAction SilentlyContinue
+                    if ($pwshCmd) {
+                        Write-Log "" -Level INFO -LogFile $LogPath
+                        Write-Log "===============================================================================" -Level INFO -LogFile $LogPath
+                        Write-Log "PowerShell Core (pwsh) is now installed!" -Level INFO -LogFile $LogPath
+                        Write-Log "Switching to PowerShell 7 to continue installation..." -Level INFO -LogFile $LogPath
+                        Write-Log "===============================================================================" -Level INFO -LogFile $LogPath
+                        Write-Log "" -Level INFO -LogFile $LogPath
+
+                        # Build arguments to pass to pwsh
+                        $pwshArgs = @(
+                            '-NoProfile'
+                            '-ExecutionPolicy', 'Bypass'
+                            '-File', $MyInvocation.MyCommand.Path
+                        )
+
+                        # Add original parameters
+                        if ($Interactive) { $pwshArgs += '-Interactive' }
+                        if ($Force) { $pwshArgs += '-Force' }
+                        if ($Unattended) { $pwshArgs += '-Unattended' }
+                        if ($LogPath) { $pwshArgs += '-LogPath', $LogPath }
+                        if ($WhatIfPreference -eq 'Continue') { $pwshArgs += '-WhatIf' }
+                        if ($VerbosePreference -ne 'SilentlyContinue') { $pwshArgs += '-Verbose' }
+
+                        # Execute in pwsh and exit current session
+                        & pwsh @pwshArgs
+                        exit $LASTEXITCODE
+                    }
+                }
+            }
         }
         else {
             Write-Log "Step completed with exit code: $exitCode" -Level WARN -LogFile $LogPath
