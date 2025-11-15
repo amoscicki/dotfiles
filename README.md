@@ -14,13 +14,13 @@ Transform a factory-reset Windows 11 machine into a fully configured development
 
 ```
 dotfiles/
-├── .claude/commands/    # SpecKit slash commands for Claude Code
-├── .specify/            # Spec-driven development templates
-├── scripts/             # PowerShell automation scripts (planned)
-├── powershell/          # PowerShell profile config (planned)
-├── git/                 # Git configuration (planned)
-├── plugin.json          # Claude Code plugin definition
-└── .gitignore           # Excludes secrets and working files
+├── .claude/commands/         # SpecKit slash commands for Claude Code
+├── .specify/                 # Spec-driven development templates
+├── windows-install-scripts/  # PowerShell Windows automation scripts
+├── powershell/               # PowerShell profile config (planned)
+├── git/                      # Git configuration (planned)
+├── plugin.json               # Claude Code plugin definition
+└── .gitignore                # Excludes secrets and working files
 ```
 
 **Current Status**: Implementation complete! All scripts and configuration files are ready for use.
@@ -46,13 +46,13 @@ dotfiles/
 2. **Run the master installation script**:
    ```powershell
    # Interactive installation (with confirmations)
-   .\scripts\install.ps1
+   .\windows-install-scripts\install.ps1
 
    # Fully automated installation (no prompts)
-   .\scripts\install.ps1 -Unattended
+   .\windows-install-scripts\install.ps1 -Unattended
 
    # Preview what would be installed (dry-run)
-   .\scripts\install.ps1 -WhatIf
+   .\windows-install-scripts\install.ps1 -WhatIf
    ```
 
 3. **Complete manual post-installation steps**:
@@ -166,7 +166,7 @@ Set-ExecutionPolicy RemoteSigned -Scope CurrentUser
 ```
 
 **Installation Interrupted - How to Resume**:
-- Simply re-run `.\scripts\install.ps1`
+- Simply re-run `.\windows-install-scripts\install.ps1`
 - All scripts are idempotent (safe to run multiple times)
 - Already-installed components will be skipped automatically
 

@@ -15,7 +15,7 @@
     Path to the log file. Defaults to logs/install-tools-YYYYMMDD-HHmmss.log
 
 .PARAMETER PackageListPath
-    Path to the package list file. Defaults to scripts/choco-packages.txt
+    Path to the package list file. Defaults to choco-packages.txt
     Ignored if -Interactive is specified.
 
 .OUTPUTS
