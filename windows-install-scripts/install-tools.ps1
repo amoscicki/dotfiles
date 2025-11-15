@@ -28,7 +28,7 @@
 
 .NOTES
     Part of User Story 2 (P2): Install Extended Development Packages
-    Requires: Administrator privileges, Chocolatey installed, PoshSpectreConsole module
+    Requires: Administrator privileges, Chocolatey installed, PwshSpectreConsole module
     See: specs/001-windows-setup-automation/spec.md FR-004, data-model.md §1
 #>
 [CmdletBinding(SupportsShouldProcess)]
@@ -46,14 +46,14 @@ $scriptRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
 
 #region Spectre Console Setup
 
-# Ensure PoshSpectreConsole module is installed
-if (-not (Get-Module -ListAvailable -Name PoshSpectreConsole)) {
-    Write-Host 'Installing PoshSpectreConsole module...' -ForegroundColor Yellow
-    Install-Module -Name PoshSpectreConsole -Scope CurrentUser -Force -SkipPublisherCheck
+# Ensure PwshSpectreConsole module is installed
+if (-not (Get-Module -ListAvailable -Name PwshSpectreConsole)) {
+    Write-Host 'Installing PwshSpectreConsole module...' -ForegroundColor Yellow
+    Install-Module -Name PwshSpectreConsole -Scope CurrentUser -Force -SkipPublisherCheck
 }
 
 # Import module
-Import-Module PoshSpectreConsole -Force
+Import-Module PwshSpectreConsole -Force
 
 #endregion
 

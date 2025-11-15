@@ -13,6 +13,7 @@
 
 .NOTES
     Requires Chocolatey to be installed for package searching
+    Requires PwshSpectreConsole module for interactive UI
 #>
 
 # Set error action preference
@@ -24,14 +25,14 @@ $packagesJsonPath = Join-Path $scriptRoot "packages.json"
 
 #region Spectre Console Setup
 
-# Ensure PoshSpectreConsole module is installed
-if (-not (Get-Module -ListAvailable -Name PoshSpectreConsole)) {
-    Write-Host 'Installing PoshSpectreConsole module...' -ForegroundColor Yellow
-    Install-Module -Name PoshSpectreConsole -Scope CurrentUser -Force -SkipPublisherCheck
+# Ensure PwshSpectreConsole module is installed
+if (-not (Get-Module -ListAvailable -Name PwshSpectreConsole)) {
+    Write-Host 'Installing PwshSpectreConsole module...' -ForegroundColor Yellow
+    Install-Module -Name PwshSpectreConsole -Scope CurrentUser -Force -SkipPublisherCheck
 }
 
 # Import module
-Import-Module PoshSpectreConsole -Force
+Import-Module PwshSpectreConsole -Force
 
 #endregion
 
