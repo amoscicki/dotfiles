@@ -73,7 +73,7 @@ function Show-Menu {
 function Search-ChocoPackages {
     param([string]$SearchTerm)
 
-    $searchMsg = "Searching Chocolatey for '" + $SearchTerm + "'..."
+    $searchMsg = 'Searching Chocolatey for ' + $SearchTerm + '...'
     Write-Host $searchMsg -ForegroundColor Yellow
 
     try {
@@ -124,7 +124,7 @@ function Show-SearchAndAdd {
         Clear-Host
         Write-Host '=== Search and Add Packages ===' -ForegroundColor Cyan
         Write-Host ''
-        Write-Host "Enter search term (or 'back' to return): " -NoNewline -ForegroundColor Yellow
+        Write-Host 'Enter search term (or back to return): ' -NoNewline -ForegroundColor Yellow
         $searchTerm = Read-Host
 
         if ($searchTerm -eq 'back' -or $searchTerm -eq '') {
