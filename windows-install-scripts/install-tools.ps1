@@ -122,12 +122,7 @@ function Show-MultiSelectMenu {
     }
 
     # Show multi-selection prompt with Spectre
-    # If AllSelected is true, pre-select all choices
-    if ($AllSelected) {
-        $selectedChoices = Read-SpectreMultiSelection -Title $Title -Choices $choices -PageSize 15 -Default $choices
-    } else {
-        $selectedChoices = Read-SpectreMultiSelection -Title $Title -Choices $choices -PageSize 15
-    }
+    $selectedChoices = Read-SpectreMultiSelection -Title $Title -Choices $choices -PageSize 15
 
     # Map selected choices back to original items
     $selectedItems = @()
