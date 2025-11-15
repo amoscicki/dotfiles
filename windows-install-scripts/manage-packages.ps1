@@ -229,7 +229,8 @@ function Show-BrowseAndRemove {
         $groupNames = @()
         foreach ($group in $config.groups) {
             $count = $group.packages.Count
-            $groupNames += "{0} ({1} packages)" -f $group.name, $count
+            $displayText = $group.name + ' (' + $count + ' packages)'
+            $groupNames += $displayText
         }
         $groupNames += '< Back'
 
@@ -245,7 +246,8 @@ function Show-BrowseAndRemove {
         while ($true) {
             $packageNames = @()
             foreach ($pkg in $selectedGroup.packages) {
-                $packageNames += "$($pkg.name) - $($pkg.description)"
+                $pkgDisplay = $pkg.name + ' - ' + $pkg.description
+                $packageNames += $pkgDisplay
             }
             $packageNames += '< Delete this group'
             $packageNames += '< Back to groups'
@@ -254,7 +256,8 @@ function Show-BrowseAndRemove {
                 $packageNames = @('< No packages in this group', '< Delete this group', '< Back to groups')
             }
 
-            $pkgIndex = Show-Menu -Title "$($selectedGroup.name) - Select package to remove" -Options $packageNames
+            $menuTitle = $selectedGroup.name + ' - Select package to remove'
+            $pkgIndex = Show-Menu -Title $menuTitle -Options $packageNames
 
             if ($pkgIndex -eq -1 -or $pkgIndex -eq $packageNames.Count - 1) {
                 break
