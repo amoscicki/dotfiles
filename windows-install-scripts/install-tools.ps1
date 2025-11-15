@@ -228,14 +228,14 @@ if ($Interactive) {
             exit 0
         }
 
-        # For each selected group, show package selection menu
+        # For each selected group, show package exclusion menu
         foreach ($groupObj in $selectedGroupObjs) {
             $group = $groupObj.Group
             Write-Host ''
             $groupName = $group.name
             $groupDesc = $group.description
 
-            $menuTitle = $groupName + ' - ' + $groupDesc
+            $menuTitle = $groupName + ' - ' + $groupDesc + ' - Select packages to EXCLUDE'
             $packageObjects = @()
             foreach ($pkg in $group.packages) {
                 $displayText = $pkg.name + ' - ' + $pkg.description
@@ -245,12 +245,21 @@ if ($Interactive) {
                 }
             }
 
-            Write-Host 'Select packages from ' + $groupName + ' (Space to toggle, Enter to confirm):' -ForegroundColor Yellow
+            Write-Host 'Select packages to EXCLUDE from ' + $groupName + ' (Space to exclude, Enter to confirm):' -ForegroundColor Yellow
+            Write-Host 'Press Enter without selecting to install ALL packages in this group' -ForegroundColor DarkGray
             Write-Host ''
-            $selectedPackages = Show-MultiSelectMenu -Title $menuTitle -Items $packageObjects -Property 'Display' -AllSelected $true
+            $excludedPackages = Show-MultiSelectMenu -Title $menuTitle -Items $packageObjects -Property 'Display' -AllSelected $false
 
-            foreach ($pkg in $selectedPackages) {
-                $packages += $pkg.Name
+            # Add all packages except excluded ones
+            $excludedNames = @()
+            foreach ($pkg in $excludedPackages) {
+                $excludedNames += $pkg.Name
+            }
+
+            foreach ($pkg in $group.packages) {
+                if ($excludedNames -notcontains $pkg.name) {
+                    $packages += $pkg.name
+                }
             }
         }
 
