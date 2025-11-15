@@ -283,8 +283,18 @@ foreach ($step in $steps) {
             # Special handling after install-pwsh.ps1: switch to PowerShell 7 if we're in PS 5.1
             if ($step.Script -eq 'install-pwsh.ps1') {
                 if ($PSVersionTable.PSVersion.Major -eq 5) {
+                    # Refresh PATH to make pwsh visible
+                    Write-Log "Refreshing PATH environment variable..." -Level DEBUG -LogFile $LogPath
+                    $machinePath = [System.Environment]::GetEnvironmentVariable('Path', 'Machine')
+                    $userPath = [System.Environment]::GetEnvironmentVariable('Path', 'User')
+                    $env:Path = $machinePath + ';' + $userPath
+
                     $pwshCmd = Get-Command pwsh -ErrorAction SilentlyContinue
                     if ($pwshCmd) {
+                        $pwshPath = $pwshCmd.Source
+                        $pwshPathMsg = "Found pwsh at: " + $pwshPath
+                        Write-Log $pwshPathMsg -Level DEBUG -LogFile $LogPath
+
                         Write-Log "" -Level INFO -LogFile $LogPath
                         Write-Log "===============================================================================" -Level INFO -LogFile $LogPath
                         Write-Log "PowerShell Core (pwsh) is now installed!" -Level INFO -LogFile $LogPath
@@ -310,6 +320,10 @@ foreach ($step in $steps) {
                         # Execute in pwsh and exit current session
                         & pwsh @pwshArgs
                         exit $LASTEXITCODE
+                    }
+                    else {
+                        Write-Log "WARNING: pwsh not found in PATH after installation. Continuing in PowerShell 5.1." -Level WARN -LogFile $LogPath
+                        Write-Log "You may need to manually restart in PowerShell 7 for full functionality." -Level WARN -LogFile $LogPath
                     }
                 }
             }

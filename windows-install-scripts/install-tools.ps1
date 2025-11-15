@@ -46,14 +46,15 @@ $scriptRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
 
 #region Spectre Console Setup
 
-# Ensure PwshSpectreConsole module is installed
-if (-not (Get-Module -ListAvailable -Name PwshSpectreConsole)) {
+# Ensure PwshSpectreConsole module is installed and imported
+try {
+    Import-Module PwshSpectreConsole -ErrorAction Stop
+}
+catch {
     Write-Host 'Installing PwshSpectreConsole module...' -ForegroundColor Yellow
     Install-Module -Name PwshSpectreConsole -Scope CurrentUser -Force -SkipPublisherCheck
+    Import-Module PwshSpectreConsole -Force
 }
-
-# Import module
-Import-Module PwshSpectreConsole -Force
 
 #endregion
 
