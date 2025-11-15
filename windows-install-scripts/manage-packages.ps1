@@ -138,11 +138,13 @@ function Show-SearchAndAdd {
         # Show search results
         $packageOptions = @()
         foreach ($pkg in $packages) {
-            $packageOptions += "$($pkg.Name) (v$($pkg.Version))"
+            $pkgOption = $pkg.Name + ' (v' + $pkg.Version + ')'
+            $packageOptions += $pkgOption
         }
         $packageOptions += '< Back to search'
 
-        $selected = Show-Menu -Title "Search Results for '$searchTerm' - Select package to add" -Options $packageOptions
+        $menuTitle = 'Search Results for ' + "'" + $searchTerm + "'" + ' - Select package to add'
+        $selected = Show-Menu -Title $menuTitle -Options $packageOptions
 
         if ($selected -eq -1 -or $selected -eq $packages.Count) {
             continue
@@ -152,9 +154,10 @@ function Show-SearchAndAdd {
 
         # Prompt for package description
         Clear-Host
-        Write-Host "Adding package: $($selectedPackage.Name)" -ForegroundColor Green
-        Write-Host ""
-        Write-Host "Enter description: " -NoNewline -ForegroundColor Yellow
+        $addMsg = 'Adding package: ' + $selectedPackage.Name
+        Write-Host $addMsg -ForegroundColor Green
+        Write-Host ''
+        Write-Host 'Enter description: ' -NoNewline -ForegroundColor Yellow
         $description = Read-Host
 
         # Load config and show groups
@@ -209,7 +212,8 @@ function Show-SearchAndAdd {
         $config.groups[$groupIndex].packages += $newPackage
         Save-Config -Config $config
 
-        Write-Host "Package added to $($config.groups[$groupIndex].name)!" -ForegroundColor Green
+        $successMsg = 'Package added to ' + $config.groups[$groupIndex].name + '!'
+        Write-Host $successMsg -ForegroundColor Green
         Start-Sleep -Seconds 2
     }
 }
@@ -266,7 +270,8 @@ function Show-BrowseAndRemove {
             if ($pkgIndex -eq $packageNames.Count - 2) {
                 # Delete group
                 Clear-Host
-                Write-Host "Delete group '$($selectedGroup.name)'? (y/N): " -NoNewline -ForegroundColor Yellow
+                $deleteMsg = "Delete group '" + $selectedGroup.name + "'? (y/N): "
+                Write-Host $deleteMsg -NoNewline -ForegroundColor Yellow
                 $confirm = Read-Host
 
                 if ($confirm -eq 'y' -or $confirm -eq 'Y') {
@@ -286,7 +291,8 @@ function Show-BrowseAndRemove {
             # Remove package
             $packageToRemove = $selectedGroup.packages[$pkgIndex]
             Clear-Host
-            Write-Host "Remove '$($packageToRemove.name)' from $($selectedGroup.name)? (y/N): " -NoNewline -ForegroundColor Yellow
+            $removeMsg = "Remove '" + $packageToRemove.name + "' from " + $selectedGroup.name + "? (y/N): "
+            Write-Host $removeMsg -NoNewline -ForegroundColor Yellow
             $confirm = Read-Host
 
             if ($confirm -eq 'y' -or $confirm -eq 'Y') {
@@ -327,16 +333,18 @@ while ($true) {
         2 {
             Clear-Host
             $config = Load-Config
-            Write-Host "=== Current Configuration ===" -ForegroundColor Cyan
-            Write-Host ""
+            Write-Host '=== Current Configuration ===' -ForegroundColor Cyan
+            Write-Host ''
             foreach ($group in $config.groups) {
-                Write-Host "$($group.name) - $($group.description)" -ForegroundColor Green
+                $groupDisplay = $group.name + ' - ' + $group.description
+                Write-Host $groupDisplay -ForegroundColor Green
                 foreach ($pkg in $group.packages) {
-                    Write-Host "  - $($pkg.name): $($pkg.description)" -ForegroundColor White
+                    $pkgDisplay = '  - ' + $pkg.name + ': ' + $pkg.description
+                    Write-Host $pkgDisplay -ForegroundColor White
                 }
-                Write-Host ""
+                Write-Host ''
             }
-            Write-Host "Press any key to continue..." -ForegroundColor Yellow
+            Write-Host 'Press any key to continue...' -ForegroundColor Yellow
             $null = $Host.UI.RawUI.ReadKey('NoEcho,IncludeKeyDown')
         }
         3 { exit 0 }
