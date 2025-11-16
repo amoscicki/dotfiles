@@ -42,12 +42,18 @@ Set-PSReadLineKeyHandler -Key Ctrl+r -BriefDescription 'FuzzyHistorySearch' -Scr
         $dir = fd --type d | fzf --height 40% --reverse --border `
             --prompt 'Directories> ' `
             --preview 'ls {}'
+        
+        function list {
+            Get-ChildItem | ForEach-Object { $n=$_.Name; $c=if ($_.PSIsContainer){'Cyan'}else{'White'}; Write-Host -NoNewline $n -ForegroundColor $c; Write-Host -NoNewline "`t" } ; Write-Host ""
+        }    
+
         if ($dir) {
-            Set-Location $dir
-            [Microsoft.PowerShell.PSConsoleReadLine]::ClearScreen()
+            cd $dir # Change directory
+            # Show directory contents using the helper 'list' function (Write-Host prints to console)
+            list
+            [Microsoft.PowerShell.PSConsoleReadLine]::AcceptLine()
         }
     }
-
 
 
 # ============================================================================
@@ -95,11 +101,187 @@ Set-Alias -Name python312 -Value "C:\Users\ArkadiuszMoscicki\AppData\Local\Progr
 Set-Alias -Name pip312 -Value "C:\Users\ArkadiuszMoscicki\AppData\Local\Programs\Python\Python312\Scripts\pip.exe" -ErrorAction SilentlyContinue
 
 # Git shortcuts
-Set-Alias -Name g -Value git -ErrorAction SilentlyContinue
+# Hashtable for our aliases
+if (-not $Global:GitAliases) { $Global:GitAliases = @{} }
 
-# Kubernetes shortcut (if kubectl installed)
-if (Get-Command kubectl -ErrorAction SilentlyContinue) {
-    Set-Alias -Name k -Value kubectl
+# Register a Git alias function and remember it in $Global:GitAliases
+function Register-GitAlias {
+    param(
+        [Parameter(Mandatory = $true)][string]$Name,
+        [Parameter(Mandatory = $true)][scriptblock]$Action,
+        [string]$Description = ''
+    )
+
+    # If an alias with the same name exists, remove it so our function takes precedence
+    try {
+        $existingAlias = Get-Command -Name $Name -CommandType Alias -ErrorAction SilentlyContinue
+        if ($existingAlias) {
+            Remove-Item -Path "Alias:\$Name" -Force -ErrorAction SilentlyContinue
+        }
+    } catch {
+        # ignore
+    }
+
+    # Create/update the function in the Global scope
+    try {
+        New-Item -Path "Function:\Global:$Name" -Value $Action -Force | Out-Null
+    } catch {
+        Write-Warning "Failed to create function ${Name}: $_"
+        return
+    }
+
+    # Store metadata so gal can list only our aliases
+    $Global:GitAliases[$Name] = @{
+        Script      = $Action
+        ScriptText  = $Action.ToString()
+        Description = $Description
+    }
+}
+
+# Register aliases (use arrays for message/args to preserve multi-word values)
+Register-GitAlias gcm  { 
+    param([Parameter(Mandatory=$true, ValueFromRemainingArguments=$true)][string[]]$Message)
+    git commit -m ($Message -join ' ')
+} "commit with message"
+Register-GitAlias gamd { git commit --amend --no-edit } "amend without edit"
+Register-GitAlias gaa  { git add . } "add all changes"
+Register-GitAlias gpsh { 
+    param([Parameter(Mandatory=$false, ValueFromRemainingArguments=$true)][string[]]$Args)
+    if ($Args) { & git push @Args } else { git push }
+} "push to remote (forwards args)"
+Register-GitAlias gst  { git stash } "stash changes"
+Register-GitAlias gsp  { git stash pop } "apply stash"
+Register-GitAlias gpl  { 
+    param([Parameter(Mandatory=$false, ValueFromRemainingArguments=$true)][string[]]$Args)
+    if ($Args) { & git pull @Args } else { git pull }
+} "pull (forwards args)"
+Register-GitAlias gft  { git fetch } "fetch from remotes"
+
+# Ensure we don't accidentally call the built-in 'gal' alias (Get-Alias)
+# Remove the alias if it exists so the function below has precedence
+try {
+    $aliasGal = Get-Command -Name gal -CommandType Alias -ErrorAction SilentlyContinue
+    if ($aliasGal) {
+        Remove-Item -Path Alias:\gal -Force -ErrorAction SilentlyContinue
+    }
+} catch {
+    # ignore
+}
+
+# Show only our registered git aliases
+function global:gal {
+    param(
+        [Switch]$fzf,        # Open fzf to choose one entry
+        [Switch]$insert,     # If used with -fzf, insert the chosen alias into the current command line
+        [Switch]$namesOnly   # Output only alias names (useful for piping to fzf)
+    )
+
+    if (($null -eq $Global:GitAliases) -or ($Global:GitAliases.Count -eq 0)) {
+        Write-Host "(no git aliases registered)" -ForegroundColor DarkYellow
+        return
+    }
+
+    $items = $Global:GitAliases.GetEnumerator() |
+        Sort-Object -Property Name |
+        ForEach-Object {
+            $meta = $_.Value
+            $desc = if ($meta.Description) { " - $($meta.Description)" } else { "" }
+            [PSCustomObject]@{
+                Name        = $_.Key
+                ScriptText  = $meta.ScriptText
+                Description = $meta.Description
+                Line        = "$($_.Key) -> $($meta.ScriptText)$desc"
+            }
+        }
+
+    if ($namesOnly) {
+        $items | Select-Object -ExpandProperty Name
+        return
+    }
+
+    if ($fzf) {
+        # Show description in the list, no preview
+        $selected = $items |
+            Select-Object -ExpandProperty Line |
+            fzf --height 40% --reverse --border `
+                --prompt 'gal> ' |
+            ForEach-Object { $_.Trim() }
+
+        if (-not $selected) { return }
+
+        # Extract alias name from selected line: "name -> script..."
+        $aliasName = ($selected -split '\s+->\s+', 2)[0].Trim()
+
+        if ([string]::IsNullOrWhiteSpace($aliasName)) { return }
+
+        if ($insert -and (Get-Module -ListAvailable PSReadLine)) {
+            try {
+                [Microsoft.PowerShell.PSConsoleReadLine]::Insert($aliasName + ' ')
+            } catch {
+                Write-Warning "PSReadLine not available or insertion failed. Outputting alias instead."
+                Write-Output $aliasName
+            }
+        } else {
+            Write-Output $aliasName
+        }
+        return
+    }
+
+    # Default: print human-friendly list with descriptions
+    foreach ($it in $items) {
+        $desc = if ($it.Description) { " - $($it.Description)" } else { "" }
+        Write-Host "$($it.Name) -> $($it.ScriptText)$desc"
+    }
+}
+
+# Helper function to open gal in fzf and insert the selection in the prompt:
+Set-PSReadLineKeyHandler -Chord Alt+g -ScriptBlock {
+    # Clear the current line first
+    [Microsoft.PowerShell.PSConsoleReadLine]::RevertLine()
+    
+    $items = $Global:GitAliases.GetEnumerator() |
+        Sort-Object -Property Name |
+        ForEach-Object {
+            $meta = $_.Value
+            $desc = if ($meta.Description) { " - $($meta.Description)" } else { "" }
+            "$($_.Key) -> $($meta.ScriptText)$desc"
+        }
+    
+    if ($items) {
+        $selected = $items | fzf --height 40% --reverse --border --prompt 'gal> '
+        
+        if ($selected) {
+            $aliasName = ($selected -split '\s+->\s+', 2)[0].Trim()
+            if ($aliasName) {
+                [Microsoft.PowerShell.PSConsoleReadLine]::Insert($aliasName + ' ')
+            }
+        }
+    }
+}
+# Alt+g now accepts the line after insertion
+Set-PSReadLineKeyHandler -Chord Alt+g -ScriptBlock {
+    # Clear the current line first
+    [Microsoft.PowerShell.PSConsoleReadLine]::RevertLine()
+    
+    $items = $Global:GitAliases.GetEnumerator() |
+        Sort-Object -Property Name |
+        ForEach-Object {
+            $meta = $_.Value
+            $desc = if ($meta.Description) { " - $($meta.Description)" } else { "" }
+            "$($_.Key) -> $($meta.ScriptText)$desc"
+        }
+    
+    if ($items) {
+        $selected = $items | fzf --height 40% --reverse --border --prompt 'gal> '
+        
+        if ($selected) {
+            $aliasName = ($selected -split '\s+->\s+', 2)[0].Trim()
+            if ($aliasName) {
+                [Microsoft.PowerShell.PSConsoleReadLine]::Insert($aliasName + ' ')
+                [Microsoft.PowerShell.PSConsoleReadLine]::AcceptLine()
+            }
+        }
+    }
 }
 
 # npm -> pnpm alias (redirect all npm commands to pnpm)
