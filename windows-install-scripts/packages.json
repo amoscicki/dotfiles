@@ -1,144 +1,158 @@
-﻿{
-    "groups":  [
-                   {
-                       "name":  "Development Tools",
-                       "description":  "Essential development tools and utilities",
-                       "packages":  [
-                                        {
-                                            "name":  "python",
-                                            "description":  "Python programming language"
-                                        },
-                                        {
-                                            "name":  "golang",
-                                            "description":  "Go programming language"
-                                        },
-                                        {
-                                            "name":  "rustup.install",
-                                            "description":  "Rust programming language"
-                                        },
-                                        {
-                                            "name":  "docker-desktop",
-                                            "description":  "Docker containers platform"
-                                        },
-                                        {
-                                            "name":  "postman",
-                                            "description":  "API development and testing"
-                                        },
-                                        {
-                                            "name":  "insomnia-rest-api-client",
-                                            "description":  "REST API client"
-                                        }
-                                    ]
-                   },
-                   {
-                       "name":  "CLI Tools",
-                       "description":  "Command-line productivity tools",
-                       "packages":  [
-                                        {
-                                            "name":  "fzf",
-                                            "description":  "Fuzzy file finder"
-                                        },
-                                        {
-                                            "name":  "ripgrep",
-                                            "description":  "Fast text search tool"
-                                        },
-                                        {
-                                            "name":  "bat",
-                                            "description":  "Cat clone with syntax highlighting"
-                                        },
-                                        {
-                                            "name":  "fd",
-                                            "description":  "Fast alternative to find"
-                                        },
-                                        {
-                                            "name":  "jq",
-                                            "description":  "JSON processor"
-                                        },
-                                        {
-                                            "name":  "yq",
-                                            "description":  "YAML processor"
-                                        },
-                                        {
-                                            "name":  "gh",
-                                            "description":  "GitHub CLI"
-                                        }
-                                    ]
-                   },
-                   {
-                       "name":  "Terminal \u0026 Shell",
-                       "description":  "Terminal emulators and shell enhancements",
-                       "packages":  [
-                                        {
-                                            "name":  "oh-my-posh",
-                                            "description":  "Prompt theme engine"
-                                        },
-                                        {
-                                            "name":  "starship",
-                                            "description":  "Cross-shell prompt"
-                                        },
-                                        {
-                                            "name":  "wezterm",
-                                            "description":  "GPU-accelerated terminal"
-                                        },
-                                        {
-                                            "name":  "cascadiacode-nerd-font",
-                                            "description":  "Cascadia Code Nerd Font"
-                                        },
-                                        {
-                                            "name":  "nerd-fonts-firacode",
-                                            "description":  "FiraCode Nerd Font"
-                                        }
-                                    ]
-                   },
-                   {
-                       "name":  "Editors \u0026 IDEs",
-                       "description":  "Code editors and development environments",
-                       "packages":  [
-                                        {
-                                            "name":  "vscode",
-                                            "description":  "Visual Studio Code"
-                                        },
-                                        {
-                                            "name":  "neovim",
-                                            "description":  "Modern Vim-based editor"
-                                        }
-                                    ]
-                   },
-                   {
-                       "name":  "Database Tools",
-                       "description":  "Database clients and management tools",
-                       "packages":  [
-                                        {
-                                            "name":  "dbeaver",
-                                            "description":  "Universal database tool"
-                                        },
-                                        {
-                                            "name":  "postgresql",
-                                            "description":  "PostgreSQL database"
-                                        },
-                                        {
-                                            "name":  "redis",
-                                            "description":  "Redis in-memory database"
-                                        }
-                                    ]
-                   },
-                   {
-                       "name":  "Utilities",
-                       "description":  "General productivity utilities",
-                       "packages":  [
-                                        {
-                                            "name":  "7zip",
-                                            "description":  "File archiver"
-                                        },
-                                        {
-                                            "name":  "powertoys",
-                                            "description":  "Windows productivity tools"
-                                        },
-                                        {
-                                            "name":  "sysinternals",
-                                            "description":  "System utilities suite"
-                                        }
-                                    ]
-                   }
-               ]
+{
+  "groups": [
+    {
+      "name": "Development Tools",
+      "description": "Essential development tools and utilities",
+      "packages": [
+        {
+          "name": "python",
+          "description": "Python programming language"
+        },
+        {
+          "name": "golang",
+          "description": "Go programming language"
+        },
+        {
+          "name": "rustup.install",
+          "description": "Rust programming language"
+        },
+        {
+          "name": "docker-desktop",
+          "description": "Docker containers platform"
+        },
+        {
+          "name": "postman",
+          "description": "API development and testing"
+        },
+        {
+          "name": "insomnia-rest-api-client",
+          "description": "REST API client"
+        }
+      ]
+    },
+    {
+      "name": "CLI Tools",
+      "description": "Command-line productivity tools",
+      "packages": [
+        {
+          "name": "fzf",
+          "description": "Fuzzy file finder"
+        },
+        {
+          "name": "ripgrep",
+          "description": "Fast text search tool"
+        },
+        {
+          "name": "bat",
+          "description": "Cat clone with syntax highlighting"
+        },
+        {
+          "name": "fd",
+          "description": "Fast alternative to find"
+        },
+        {
+          "name": "jq",
+          "description": "JSON processor"
+        },
+        {
+          "name": "yq",
+          "description": "YAML processor"
+        },
+        {
+          "name": "gh",
+          "description": "GitHub CLI"
+        }
+      ]
+    },
+    {
+      "name": "Terminal & Shell",
+      "description": "Terminal emulators and shell enhancements",
+      "packages": [
+        {
+          "name": "oh-my-posh",
+          "description": "Prompt theme engine"
+        },
+        {
+          "name": "starship",
+          "description": "Cross-shell prompt"
+        },
+        {
+          "name": "wezterm",
+          "description": "GPU-accelerated terminal"
+        },
+        {
+          "name": "cascadiacode-nerd-font",
+          "description": "Cascadia Code Nerd Font"
+        },
+        {
+          "name": "nerd-fonts-firacode",
+          "description": "FiraCode Nerd Font"
+        }
+      ]
+    },
+    {
+      "name": "Editors & IDEs",
+      "description": "Code editors and development environments",
+      "packages": [
+        {
+          "name": "vscode",
+          "description": "Visual Studio Code"
+        },
+        {
+          "name": "neovim",
+          "description": "Modern Vim-based editor"
+        }
+      ]
+    },
+    {
+      "name": "Database Tools",
+      "description": "Database clients and management tools",
+      "packages": [
+        {
+          "name": "dbeaver",
+          "description": "Universal database tool"
+        },
+        {
+          "name": "postgresql",
+          "description": "PostgreSQL database"
+        },
+        {
+          "name": "redis",
+          "description": "Redis in-memory database"
+        }
+      ]
+    },
+    {
+      "name": "Utilities",
+      "description": "General productivity utilities",
+      "packages": [
+        {
+          "name": "7zip",
+          "description": "File archiver"
+        },
+        {
+          "name": "powertoys",
+          "description": "Windows productivity tools"
+        },
+        {
+          "name": "sysinternals",
+          "description": "System utilities suite"
+        },
+        {
+          "name": "wsl2",
+          "description": "WSL2"
+        }
+      ]
+    },
+    {
+      "name": "Comms",
+      "description": "Comms",
+      "packages": [
+        {
+          "name": "discord",
+          "description": "Discord"
+        }
+      ]
+    }
+  ]
 }
