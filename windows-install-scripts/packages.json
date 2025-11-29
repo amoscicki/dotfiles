@@ -141,6 +141,18 @@
         {
           "name": "wsl2",
           "description": "WSL2"
+        },
+        {
+          "name": "openvpn",
+          "description": "ovpn"
+        },
+        {
+          "name": "glazewm",
+          "description": "Window Manager"
+        },
+        {
+          "name": "virtualbox",
+          "description": "Vbox"
         }
       ]
     },

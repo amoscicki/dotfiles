@@ -11,8 +11,8 @@
 #   git config --global user.email "your.email@example.com"
 
 [user]
-    name = YOUR_NAME
-    email = your.email@example.com
+	name = Arkadiusz Moscicki
+	email = arkadiuszmoscicki@gmail.com
 
 # ============================================================================
 # Core Settings

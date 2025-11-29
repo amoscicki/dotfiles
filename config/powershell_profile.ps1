@@ -1,0 +1,1 @@
+C:/.config/powershell_profile.ps1

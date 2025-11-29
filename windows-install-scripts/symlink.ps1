@@ -1,12 +1,17 @@
 <#
 .SYNOPSIS
-    Creates symbolic links from dotfiles to system configuration locations.
+    Sets up dotfiles configuration with idempotent symlink management.
 
 .DESCRIPTION
-    Creates symlinks for PowerShell profile, Git configuration, and Wezterm config
-    from the dotfiles repository to their respective system locations. Backs up
-    existing files with timestamps before creating symlinks. Supports confirmation
-    prompts unless -Force is specified.
+    Idempotent configuration script that:
+    1. Copies profiles from dotfiles to C:\.config (only on fresh install)
+    2. Creates reverse symlinks: dotfiles -> C:\.config (for git tracking)
+    3. Creates symlinks for Git and Wezterm configs
+
+    Architecture:
+    - C:\.config = source of truth (real files)
+    - P:\dotfiles\config\ = symlinks TO C:\.config (for git)
+    - $PSHOME\profile.ps1 = dot-sources C:\.config (no Documents dependency)
 
 .PARAMETER Force
     Skip confirmation prompts when overwriting existing files.
@@ -25,14 +30,9 @@
     PS> .\symlink.ps1 -Force
     Creates symlinks without confirmation prompts.
 
-.EXAMPLE
-    PS> .\symlink.ps1 -WhatIf
-    Previews what symlinks would be created without making changes.
-
 .NOTES
-    Part of User Story 3 (P3): Apply Configuration Files via Symlinks
-    Requires: Administrator privileges, configuration files exist in dotfiles/
-    See: specs/001-windows-setup-automation/spec.md FR-005, FR-006, data-model.md §4
+    Requires: Administrator privileges
+    Flow: Clone -> Install (copy to C:\.config) -> Symlinks (repo -> C:\.config)
 #>
 [CmdletBinding(SupportsShouldProcess)]
 param(
@@ -83,6 +83,65 @@ function Write-Log {
     }
 }
 
+function New-SymlinkSafe {
+    param(
+        [string]$Path,
+        [string]$Target,
+        [string]$Description,
+        [bool]$Force,
+        [string]$LogFile
+    )
+
+    # Check if symlink already exists and points to correct target
+    if (Test-Path $Path) {
+        $existingItem = Get-Item $Path -Force -ErrorAction SilentlyContinue
+
+        if ($existingItem.LinkType -eq 'SymbolicLink') {
+            if ($existingItem.Target -eq $Target) {
+                Write-Log "Symlink already correct: $Path -> $Target" -Level DEBUG -LogFile $LogFile
+                return @{ Status = 'Skipped'; Reason = 'Already correct' }
+            }
+            Write-Log "Symlink exists but points to: $($existingItem.Target)" -Level WARN -LogFile $LogFile
+        } else {
+            Write-Log "Regular file exists at: $Path" -Level WARN -LogFile $LogFile
+        }
+
+        # Prompt for confirmation unless -Force
+        if (-not $Force) {
+            $confirmation = Read-Host "Overwrite $Path? (y/N)"
+            if ($confirmation -ne 'y' -and $confirmation -ne 'Y') {
+                return @{ Status = 'Skipped'; Reason = 'User declined' }
+            }
+        }
+
+        # Backup if regular file
+        if ($existingItem.LinkType -ne 'SymbolicLink') {
+            $backupPath = "$Path.backup.$(Get-Date -Format 'yyyyMMdd-HHmmss')"
+            Copy-Item -Path $Path -Destination $backupPath -Force
+            Write-Log "Backed up to: $backupPath" -Level INFO -LogFile $LogFile
+        }
+
+        Remove-Item -Path $Path -Force
+    }
+
+    # Ensure parent directory exists
+    $parentDir = Split-Path -Parent $Path
+    if (-not (Test-Path $parentDir)) {
+        New-Item -Path $parentDir -ItemType Directory -Force | Out-Null
+    }
+
+    # Create symlink
+    New-Item -ItemType SymbolicLink -Path $Path -Target $Target -Force | Out-Null
+
+    # Validate
+    $newItem = Get-Item $Path -Force
+    if ($newItem.LinkType -eq 'SymbolicLink' -and $newItem.Target -eq $Target) {
+        return @{ Status = 'Created' }
+    }
+
+    return @{ Status = 'Failed'; Reason = 'Validation failed' }
+}
+
 #endregion
 
 # Setup logging
@@ -91,7 +150,6 @@ if (-not $LogPath) {
     $LogPath = Join-Path $scriptRoot "..\logs\symlink-$timestamp.log"
 }
 
-# Ensure log directory exists
 $logDir = Split-Path -Parent $LogPath
 if (-not (Test-Path $logDir)) {
     New-Item -Path $logDir -ItemType Directory -Force | Out-Null
@@ -100,238 +158,172 @@ if (-not (Test-Path $logDir)) {
 Write-Log "=== Symlink Configuration Script Started ===" -Level INFO -LogFile $LogPath
 Write-Log "Dotfiles root: $dotfilesRoot" -Level INFO -LogFile $LogPath
 
-# Check Administrator privileges (FR-008)
+# Check Administrator privileges
 if (-not (Test-Administrator)) {
-    Write-Log "ERROR: Administrator privileges required for symlink creation. Please run PowerShell as Administrator." -Level ERROR -LogFile $LogPath
+    Write-Log "ERROR: Administrator privileges required. Run as Administrator." -Level ERROR -LogFile $LogPath
     exit 2
 }
 
 Write-Log "Administrator check: PASS" -Level INFO -LogFile $LogPath
 
-# Create C:\.config directory and copy PowerShell profiles
-Write-Log "Setting up PowerShell profiles in C:\.config..." -Level INFO -LogFile $LogPath
+# ============================================================================
+# STEP 1: Setup C:\.config (source of truth)
+# ============================================================================
+Write-Log "=== Step 1: Setting up C:\\.config ===" -Level INFO -LogFile $LogPath
 
 $configDir = "C:\.config"
-if (-not (Test-Path $configDir)) {
-    New-Item -Path $configDir -ItemType Directory -Force | Out-Null
-    Write-Log "Created directory: $configDir" -Level INFO -LogFile $LogPath
-}
+$dotfilesConfigDir = Join-Path $dotfilesRoot "config"
 
-# Copy PowerShell profiles to C:\.config
-$ps5ProfileSource = Join-Path $dotfilesRoot "powershell\Microsoft.PowerShell_profile.ps1"
-$ps5ProfileTarget = Join-Path $configDir "powershell_profile.ps1"
-$ps7ProfileSource = Join-Path $dotfilesRoot "powershell\pwsh_profile.ps1"
-$ps7ProfileTarget = Join-Path $configDir "pwsh_profile.ps1"
+# Check if C:\.config already has profiles (existing installation)
+$ps7ConfigExists = Test-Path (Join-Path $configDir "pwsh_profile.ps1")
 
-if (Test-Path $ps5ProfileSource) {
-    Copy-Item -Path $ps5ProfileSource -Destination $ps5ProfileTarget -Force
-    Write-Log "Copied PS 5.1 profile to: $ps5ProfileTarget" -Level INFO -LogFile $LogPath
+if ($ps7ConfigExists) {
+    Write-Log "C:\\.config already has profiles - skipping copy (re-clone scenario)" -Level INFO -LogFile $LogPath
 } else {
-    Write-Log "WARNING: PS 5.1 profile source not found: $ps5ProfileSource" -Level WARN -LogFile $LogPath
+    # Fresh install - copy from dotfiles
+    Write-Log "Fresh install detected - copying profiles to C:\\.config" -Level INFO -LogFile $LogPath
+
+    if (-not (Test-Path $configDir)) {
+        New-Item -Path $configDir -ItemType Directory -Force | Out-Null
+        Write-Log "Created: $configDir" -Level INFO -LogFile $LogPath
+    }
+
+    # Copy profiles from dotfiles/config to C:\.config
+    $profilesToCopy = @(
+        @{ Source = "pwsh_profile.ps1"; Target = "pwsh_profile.ps1" }
+        @{ Source = "powershell_profile.ps1"; Target = "powershell_profile.ps1" }
+    )
+
+    foreach ($profile in $profilesToCopy) {
+        $sourcePath = Join-Path $dotfilesConfigDir $profile.Source
+        $targetPath = Join-Path $configDir $profile.Target
+
+        if (Test-Path $sourcePath) {
+            # Check if source is a symlink (re-clone after install)
+            $sourceItem = Get-Item $sourcePath -Force
+            if ($sourceItem.LinkType -eq 'SymbolicLink') {
+                Write-Log "Source is already a symlink, skipping: $sourcePath" -Level DEBUG -LogFile $LogPath
+                continue
+            }
+
+            Copy-Item -Path $sourcePath -Destination $targetPath -Force
+            Write-Log "Copied: $($profile.Source) -> $targetPath" -Level INFO -LogFile $LogPath
+        } else {
+            Write-Log "Source not found: $sourcePath" -Level WARN -LogFile $LogPath
+        }
+    }
 }
 
-if (Test-Path $ps7ProfileSource) {
-    Copy-Item -Path $ps7ProfileSource -Destination $ps7ProfileTarget -Force
-    Write-Log "Copied PS 7 profile to: $ps7ProfileTarget" -Level INFO -LogFile $LogPath
-} else {
-    Write-Log "WARNING: PS 7 profile source not found: $ps7ProfileSource" -Level WARN -LogFile $LogPath
-}
+# ============================================================================
+# STEP 2: Create reverse symlinks in dotfiles (for git tracking)
+# ============================================================================
+Write-Log "=== Step 2: Creating reverse symlinks in dotfiles ===" -Level INFO -LogFile $LogPath
 
-# Define symlink mappings (data-model.md §4)
-$symlinkMappings = @(
+$reverseSymlinks = @(
     @{
-        Source = "C:\.config\powershell_profile.ps1"
-        Target = $PROFILE.CurrentUserAllHosts
-        Description = "PowerShell 5.1 profile (Windows PowerShell)"
+        Path = Join-Path $dotfilesConfigDir "pwsh_profile.ps1"
+        Target = Join-Path $configDir "pwsh_profile.ps1"
+        Description = "PS7 profile (dotfiles -> C:\.config)"
     }
     @{
-        Source = "C:\.config\pwsh_profile.ps1"
-        Target = Join-Path $HOME "Documents\PowerShell\Microsoft.PowerShell_profile.ps1"
-        Description = "PowerShell 7+ main profile (pwsh)"
+        Path = Join-Path $dotfilesConfigDir "powershell_profile.ps1"
+        Target = Join-Path $configDir "powershell_profile.ps1"
+        Description = "PS5.1 profile (dotfiles -> C:\.config)"
     }
+)
+
+$results = @{ Created = @(); Skipped = @(); Failed = @() }
+
+foreach ($link in $reverseSymlinks) {
+    Write-Log "Processing: $($link.Description)" -Level INFO -LogFile $LogPath
+
+    # Check if target exists in C:\.config
+    if (-not (Test-Path $link.Target)) {
+        Write-Log "Target not found: $($link.Target)" -Level ERROR -LogFile $LogPath
+        $results.Failed += $link.Description
+        continue
+    }
+
+    # Check if source is a regular file (not symlink) - need to delete it first
+    if (Test-Path $link.Path) {
+        $item = Get-Item $link.Path -Force
+        if ($item.LinkType -ne 'SymbolicLink') {
+            Write-Log "Removing regular file to create symlink: $($link.Path)" -Level INFO -LogFile $LogPath
+            Remove-Item -Path $link.Path -Force
+        }
+    }
+
+    $result = New-SymlinkSafe -Path $link.Path -Target $link.Target -Description $link.Description -Force $Force -LogFile $LogPath
+
+    switch ($result.Status) {
+        'Created' { $results.Created += $link.Description }
+        'Skipped' { $results.Skipped += $link.Description }
+        'Failed'  { $results.Failed += $link.Description }
+    }
+}
+
+# ============================================================================
+# STEP 3: Create symlinks for other configs (Git, Wezterm)
+# ============================================================================
+Write-Log "=== Step 3: Creating symlinks for Git and Wezterm ===" -Level INFO -LogFile $LogPath
+
+$otherSymlinks = @(
     @{
-        Source = Join-Path $dotfilesRoot "git\.gitconfig"
-        Target = Join-Path $HOME ".gitconfig"
+        Path = Join-Path $HOME ".gitconfig"
+        Target = Join-Path $dotfilesRoot "git\.gitconfig"
         Description = "Git global configuration"
     }
     @{
-        Source = Join-Path $dotfilesRoot "wezterm\wezterm.lua"
-        Target = Join-Path $HOME ".wezterm.lua"
+        Path = Join-Path $HOME ".wezterm.lua"
+        Target = Join-Path $dotfilesRoot "wezterm\wezterm.lua"
         Description = "Wezterm terminal configuration"
     }
 )
 
-# Validate all source files exist before proceeding
-Write-Log "Validating source files..." -Level INFO -LogFile $LogPath
-$missingFiles = @()
+foreach ($link in $otherSymlinks) {
+    Write-Log "Processing: $($link.Description)" -Level INFO -LogFile $LogPath
 
-foreach ($mapping in $symlinkMappings) {
-    if (-not (Test-Path $mapping.Source)) {
-        $missingFiles += $mapping.Source
-        Write-Log "ERROR: Source file missing: $($mapping.Source)" -Level ERROR -LogFile $LogPath
-    } else {
-        Write-Log "Source exists: $($mapping.Source)" -Level DEBUG -LogFile $LogPath
-    }
-}
-
-if ($missingFiles.Count -gt 0) {
-    Write-Log "ERROR: $($missingFiles.Count) source file(s) missing. Cannot proceed." -Level ERROR -LogFile $LogPath
-    exit 3
-}
-
-Write-Log "All source files validated successfully." -Level INFO -LogFile $LogPath
-
-# Track results
-$results = @{
-    Created = @()
-    Skipped = @()
-    Failed = @()
-}
-
-# Process each symlink mapping
-foreach ($mapping in $symlinkMappings) {
-    Write-Log "=== Processing: $($mapping.Description) ===" -Level INFO -LogFile $LogPath
-    Write-Log "Source: $($mapping.Source)" -Level INFO -LogFile $LogPath
-    Write-Log "Target: $($mapping.Target)" -Level INFO -LogFile $LogPath
-
-    # Ensure target parent directory exists (Edge Case from spec)
-    $targetDir = Split-Path -Parent $mapping.Target
-    if (-not (Test-Path $targetDir)) {
-        Write-Log "Creating target directory: $targetDir" -Level INFO -LogFile $LogPath
-
-        if ($WhatIfPreference -ne 'Continue') {
-            try {
-                New-Item -Path $targetDir -ItemType Directory -Force | Out-Null
-                Write-Log "Target directory created successfully." -Level INFO -LogFile $LogPath
-            }
-            catch {
-                Write-Log "ERROR: Failed to create target directory: $($_.Exception.Message)" -Level ERROR -LogFile $LogPath
-                $results.Failed += $mapping.Description
-                continue
-            }
-        }
-    }
-
-    # Check if symlink already exists and points to correct source (idempotency - FR-009)
-    if (Test-Path $mapping.Target) {
-        $existingItem = Get-Item $mapping.Target -Force -ErrorAction SilentlyContinue
-
-        # Check if it's already a symlink pointing to our source
-        if ($existingItem.LinkType -eq 'SymbolicLink') {
-            $existingTarget = $existingItem.Target
-
-            if ($existingTarget -eq $mapping.Source) {
-                Write-Log "Symlink already exists and points to correct source. Skipping." -Level WARN -LogFile $LogPath
-                $results.Skipped += $mapping.Description
-                continue
-            }
-            else {
-                Write-Log "Symlink exists but points to: $existingTarget" -Level WARN -LogFile $LogPath
-            }
-        }
-        else {
-            Write-Log "Target exists as a regular file (not a symlink)." -Level WARN -LogFile $LogPath
-        }
-
-        # Target exists but is not the correct symlink
-        # Prompt for confirmation unless -Force specified (FR-006)
-        if (-not $Force -and $WhatIfPreference -ne 'Continue') {
-            $confirmation = Read-Host "Target file exists. Overwrite? (y/N)"
-            if ($confirmation -ne 'y' -and $confirmation -ne 'Y') {
-                Write-Log "User declined to overwrite. Skipping." -Level WARN -LogFile $LogPath
-                $results.Skipped += $mapping.Description
-                continue
-            }
-        }
-
-        # Backup existing file (data-model.md §3)
-        $backupTimestamp = Get-Date -Format "yyyyMMdd-HHmmss"
-        $backupPath = "$($mapping.Target).backup.$backupTimestamp"
-
-        Write-Log "Backing up existing file to: $backupPath" -Level INFO -LogFile $LogPath
-
-        if ($WhatIfPreference -ne 'Continue') {
-            try {
-                # Backup original file BEFORE removing it
-                if ($existingItem.LinkType -ne 'SymbolicLink') {
-                    Copy-Item -Path $existingItem.FullName -Destination $backupPath -Force -ErrorAction Stop
-                    Write-Log "Backup created successfully." -Level INFO -LogFile $LogPath
-                }
-                else {
-                    Write-Log "Existing item was a symlink, no backup needed." -Level INFO -LogFile $LogPath
-                }
-
-                # Now remove existing item (file or symlink)
-                Remove-Item -Path $mapping.Target -Force -ErrorAction Stop
-            }
-            catch {
-                Write-Log "ERROR: Failed to backup existing file: $($_.Exception.Message)" -Level ERROR -LogFile $LogPath
-                $results.Failed += $mapping.Description
-                continue
-            }
-        }
-    }
-
-    # Create the symlink
-    if ($WhatIfPreference -eq 'Continue') {
-        Write-Log "WhatIf: Would create symlink from '$($mapping.Target)' to '$($mapping.Source)'" -Level INFO -LogFile $LogPath
+    if (-not (Test-Path $link.Target)) {
+        Write-Log "Source not found: $($link.Target)" -Level WARN -LogFile $LogPath
+        $results.Skipped += $link.Description
         continue
     }
 
-    try {
-        Write-Log "Creating symlink..." -Level INFO -LogFile $LogPath
+    $result = New-SymlinkSafe -Path $link.Path -Target $link.Target -Description $link.Description -Force $Force -LogFile $LogPath
 
-        New-Item -ItemType SymbolicLink -Path $mapping.Target -Target $mapping.Source -Force | Out-Null
-
-        # Validate symlink creation
-        if (Test-Path $mapping.Target) {
-            $newItem = Get-Item $mapping.Target -Force
-            if ($newItem.LinkType -eq 'SymbolicLink' -and $newItem.Target -eq $mapping.Source) {
-                Write-Log "Symlink created and validated successfully." -Level INFO -LogFile $LogPath
-                $results.Created += $mapping.Description
-            }
-            else {
-                throw "Symlink validation failed: Link type=$($newItem.LinkType), Target=$($newItem.Target)"
-            }
-        }
-        else {
-            throw "Symlink was not created (target path does not exist after creation)"
-        }
-    }
-    catch {
-        Write-Log "ERROR: Failed to create symlink: $($_.Exception.Message)" -Level ERROR -LogFile $LogPath
-        $results.Failed += $mapping.Description
+    switch ($result.Status) {
+        'Created' { $results.Created += $link.Description }
+        'Skipped' { $results.Skipped += $link.Description }
+        'Failed'  { $results.Failed += $link.Description }
     }
 }
 
-# No extra copying needed - symlink handles it
-
+# ============================================================================
 # Summary
-Write-Log "=== Symlink Creation Summary ===" -Level INFO -LogFile $LogPath
-Write-Log "Successfully created: $($results.Created.Count)" -Level INFO -LogFile $LogPath
-if ($results.Created.Count -gt 0) {
-    $results.Created | ForEach-Object { Write-Log "  - $_" -Level INFO -LogFile $LogPath }
-}
+# ============================================================================
+Write-Log "=== Summary ===" -Level INFO -LogFile $LogPath
+Write-Log "Created: $($results.Created.Count)" -Level INFO -LogFile $LogPath
+$results.Created | ForEach-Object { Write-Log "  - $_" -Level INFO -LogFile $LogPath }
 
-Write-Log "Skipped (already correct): $($results.Skipped.Count)" -Level INFO -LogFile $LogPath
-if ($results.Skipped.Count -gt 0) {
-    $results.Skipped | ForEach-Object { Write-Log "  - $_" -Level INFO -LogFile $LogPath }
-}
+Write-Log "Skipped: $($results.Skipped.Count)" -Level INFO -LogFile $LogPath
+$results.Skipped | ForEach-Object { Write-Log "  - $_" -Level WARN -LogFile $LogPath }
 
 Write-Log "Failed: $($results.Failed.Count)" -Level INFO -LogFile $LogPath
-if ($results.Failed.Count -gt 0) {
-    $results.Failed | ForEach-Object { Write-Log "  - $_" -Level ERROR -LogFile $LogPath }
-}
+$results.Failed | ForEach-Object { Write-Log "  - $_" -Level ERROR -LogFile $LogPath }
 
 if ($results.Failed.Count -gt 0) {
-    Write-Log "=== Symlink Configuration Script Completed with Errors ===" -Level ERROR -LogFile $LogPath
+    Write-Log "=== Completed with Errors ===" -Level ERROR -LogFile $LogPath
     exit 1
 }
 
-Write-Log "=== Symlink Configuration Script Completed Successfully ===" -Level INFO -LogFile $LogPath
-Write-Log "Next steps:" -Level INFO -LogFile $LogPath
-Write-Log "  1. Update Git config: git config --global user.name 'Your Name'" -Level INFO -LogFile $LogPath
-Write-Log "  2. Update Git config: git config --global user.email 'your.email@example.com'" -Level INFO -LogFile $LogPath
-Write-Log "  3. Restart PowerShell to load new profile with Oh My Posh theme" -Level INFO -LogFile $LogPath
+Write-Log "=== Completed Successfully ===" -Level INFO -LogFile $LogPath
+Write-Log "" -Level INFO -LogFile $LogPath
+Write-Log "Architecture now:" -Level INFO -LogFile $LogPath
+Write-Log "  C:\\.config\\*.ps1        = Source of truth (edit here)" -Level INFO -LogFile $LogPath
+Write-Log "  P:\\dotfiles\\config\\*    = Symlinks to C:\\.config (for git)" -Level INFO -LogFile $LogPath
+Write-Log "  \$PSHOME\\profile.ps1     = Dot-sources C:\\.config" -Level INFO -LogFile $LogPath
+Write-Log "" -Level INFO -LogFile $LogPath
+Write-Log "To update profiles: Edit C:\\.config\\pwsh_profile.ps1" -Level INFO -LogFile $LogPath
+Write-Log "Changes appear in git automatically via symlinks." -Level INFO -LogFile $LogPath
 
 exit 0
