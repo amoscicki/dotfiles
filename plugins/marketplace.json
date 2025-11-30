@@ -1,0 +1,12 @@
+{
+  "name": "amoscicki-plugins",
+  "description": "Personal Claude Code plugins by Arkadiusz Moscicki",
+  "plugins": [
+    {
+      "name": "docs-researcher",
+      "description": "Subagent that researches documentation and saves to .claude/knowledge/ as project-local knowledge base",
+      "path": "plugins/docs-researcher",
+      "version": "0.1.0"
+    }
+  ]
+}
